@@ -1,0 +1,1101 @@
+const STORAGE_KEY = "george-growth-assistant-v1";
+const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+const today = new Date();
+const todayKey = toDateKey(today);
+
+const TASKS = [
+  { id: "school-homework", name: "学校作业", type: "study", points: 2, bonusLabel: "全对 +1", weekdays: [1, 2, 3, 4, 5] },
+  { id: "olympiad", name: "奥数作业", type: "study", points: 2, bonusLabel: "常规题全对 +1", weekdays: [2, 4] },
+  { id: "coding", name: "编程作业", type: "study", points: 2, bonusLabel: "独立全对 +1", weekdays: [6] },
+  { id: "english-homework", name: "英语作业", type: "study", points: 2, bonusLabel: "检查正确 +1", weekdays: [1, 3, 5] },
+  { id: "piano-practice", name: "钢琴练习", type: "study", points: 2, bonusLabel: "达到效果 +1", weekdays: [1, 2, 3, 4, 5, 6] },
+  { id: "go-game", name: "下围棋", type: "study", points: 2, bonusLabel: "获胜 +1", weekdays: [3, 6] },
+  { id: "english-review", name: "英语复习", type: "study", points: 2, bonusLabel: "抽查通过 +1", weekdays: [2, 4] },
+  { id: "chinese-practice", name: "语文练习", type: "study", points: 2, bonusLabel: "基础题正确 +1", weekdays: [1, 3, 5] },
+  { id: "chinese-reading", name: "语文阅读", type: "study", points: 2, bonusLabel: "能复述 +1", weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "english-reading", name: "英语阅读", type: "study", points: 2, bonusLabel: "说出新词句 +1", weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "hand-wash", name: "回家/饭前洗手", type: "habit", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "fold-clothes", name: "回家叠衣服", type: "habit", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "slippers", name: "穿拖鞋", type: "habit", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "desk-bag", name: "收拾书桌/书包", type: "habit", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "sleep-routine", name: "按时洗漱睡觉", type: "habit", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "english-class", name: "英语课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [6] },
+  { id: "math-class", name: "数学课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [0] },
+  { id: "piano-class", name: "钢琴课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [5] },
+  { id: "go-class", name: "围棋课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [0] },
+  { id: "diary", name: "写日记", type: "bonus", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "mistake-book", name: "写错题本", type: "bonus", points: 2, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "help-family", name: "主动帮忙", type: "bonus", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "extra-reading", name: "额外阅读 15 分钟", type: "bonus", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "clean-meal", name: "吃饭干净且收拾碗筷", type: "bonus", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "make-bed", name: "起床后整理床铺", type: "bonus", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "prepare-clothes", name: "准备第二天衣物", type: "bonus", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+  { id: "other-bonus", name: "其他", type: "bonus", points: 1, customPoints: true, weekdays: [1, 2, 3, 4, 5, 6, 0] },
+];
+
+const REWARDS = [
+  { id: "video", name: "10 分钟正经视频", cost: 20, detail: "内容需家长认可，例如科普、纪录片、学习类视频。" },
+  { id: "stationery", name: "5 元以内文具", cost: 50, detail: "橡皮、铅笔、贴纸、小本子等。" },
+  { id: "movie", name: "看一部电影", cost: 150, detail: "家长确认时间和影片。" },
+  { id: "flex", name: "灵活兑换", cost: 0, detail: "默认 1 元 = 10 积分，家长确认时可调整。", flexible: true },
+];
+
+const BADGES = [
+  { id: "streak-3", name: "三日小火苗", title: "小火苗", condition: "连续达标 3 天", test: (s) => s.streak >= 3 },
+  { id: "streak-7", name: "一周自律星", title: "自律星", condition: "连续达标 7 天", test: (s) => s.streak >= 7 },
+  { id: "streak-21", name: "二十一天坚持者", title: "坚持者", condition: "连续达标 21 天", test: (s) => s.streak >= 21 },
+  { id: "excellent-10", name: "优秀学习者", title: "优秀学习者", condition: "学习任务优秀累计 10 次", test: (s) => countExcellent(s) >= 10 },
+  { id: "homework-10", name: "作业全对王", title: "全对王", condition: "学校作业优秀累计 10 次", test: (s) => countTaskStatus(s, "school-homework", "excellent") >= 10 },
+  { id: "coder-5", name: "小小程序员", title: "小程序员", condition: "编程作业优秀累计 5 次", test: (s) => countTaskStatus(s, "coding", "excellent") >= 5 },
+  { id: "reader-20", name: "阅读小书虫", title: "小书虫", condition: "阅读累计完成 20 次", test: (s) => countReadingDone(s) >= 20 },
+  { id: "go-10", name: "围棋小棋手", title: "小棋手", condition: "围棋累计 10 盘", test: (s) => countTaskDone(s, "go-game") >= 10 },
+  { id: "go-win-5", name: "胜利小棋手", title: "胜利棋手", condition: "围棋获胜 5 盘", test: (s) => countGoWins(s) >= 5 },
+  { id: "piano-10", name: "钢琴练习家", title: "练习家", condition: "钢琴练习 10 次", test: (s) => countTaskDone(s, "piano-practice") >= 10 },
+  { id: "habit-10", name: "自理小能手", title: "自理能手", condition: "习惯达标 10 天", test: (s) => countHabitQualifiedDays(s) >= 10 },
+  { id: "box-3", name: "宝箱猎人", title: "宝箱猎人", condition: "奖励宝箱触发 3 次", test: (s) => countRewardBoxes(s) >= 3 },
+  { id: "perfect-day", name: "满格能量日", title: "满格能量", condition: "隐藏条件", hidden: true, test: (s) => hasPerfectEnergyDay(s) },
+  { id: "comeback", name: "逆风翻盘", title: "翻盘小将", condition: "隐藏条件", hidden: true, test: (s) => s.flags.comeback },
+  { id: "all-rounder", name: "全能小达人", title: "全能达人", condition: "隐藏条件", hidden: true, test: (s) => hasAllRounderWeek(s) },
+];
+
+const elements = {
+  todayTitle: document.querySelector("#todayTitle"),
+  profileLine: document.querySelector("#profileLine"),
+  totalPoints: document.querySelector("#totalPoints"),
+  estimatedPoints: document.querySelector("#estimatedPoints"),
+  streakDays: document.querySelector("#streakDays"),
+  multiplierText: document.querySelector("#multiplierText"),
+  climbingStatus: document.querySelector("#climbingStatus"),
+  climbingHint: document.querySelector("#climbingHint"),
+  treasureBanner: document.querySelector("#treasureBanner"),
+  studyProgress: document.querySelector("#studyProgress"),
+  habitProgress: document.querySelector("#habitProgress"),
+  taskSections: document.querySelector("#taskSections"),
+  settlementPanel: document.querySelector("#settlementPanel"),
+  rewardGrid: document.querySelector("#rewardGrid"),
+  redemptionList: document.querySelector("#redemptionList"),
+  badgeGrid: document.querySelector("#badgeGrid"),
+  scheduleEditor: document.querySelector("#scheduleEditor"),
+  cloudPanel: document.querySelector("#cloudPanel"),
+  resetButton: document.querySelector("#resetButton"),
+  toast: document.querySelector("#toast"),
+};
+
+let state = loadState();
+const cloud = {
+  configured: Boolean(window.GEORGE_FIREBASE_CONFIG),
+  ready: false,
+  applyingRemote: false,
+  saveTimer: null,
+  user: null,
+  auth: null,
+  db: null,
+  unsubscribe: null,
+};
+
+elements.todayTitle.textContent = `${today.getMonth() + 1} 月 ${today.getDate()} 日 ${WEEKDAYS[today.getDay()]}`;
+
+document.querySelectorAll(".tab-button").forEach((button) => {
+  button.addEventListener("click", () => setView(button.dataset.view));
+});
+elements.resetButton.addEventListener("click", resetData);
+
+ensureToday();
+initCloudSync();
+render();
+
+function defaultState() {
+  const schedules = {};
+  TASKS.forEach((task) => {
+    schedules[task.id] = [...task.weekdays];
+  });
+  return {
+    points: 0,
+    streak: 0,
+    missStreak: 0,
+    records: {},
+    settlements: {},
+    schedules,
+    redemptions: [],
+    unlockedBadges: [],
+    currentTitle: "",
+    treasureBoxes: {},
+    flags: { hadMissStreak: false, comeback: false },
+    version: 1,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function loadState() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) return defaultState();
+  try {
+    const parsed = JSON.parse(stored);
+    const base = defaultState();
+    return {
+      ...base,
+      ...parsed,
+      schedules: { ...base.schedules, ...(parsed.schedules || {}) },
+      flags: { ...base.flags, ...(parsed.flags || {}) },
+    };
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+    return defaultState();
+  }
+}
+
+function saveState() {
+  state.updatedAt = new Date().toISOString();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  queueCloudSave();
+}
+
+function ensureToday() {
+  if (!state.records[todayKey]) state.records[todayKey] = { tasks: {}, leave: false };
+  TASKS.forEach((task) => {
+    if (!state.records[todayKey].tasks[task.id]) state.records[todayKey].tasks[task.id] = initialTaskRecord(task);
+  });
+  ensureTreasureMonth(monthKey(today));
+  saveState();
+}
+
+function initialTaskRecord(task) {
+  return {
+    status: "pending",
+    duration: "",
+    note: "",
+    title: "",
+    progress: "",
+    won: false,
+    level: "",
+    customName: "",
+    customPoints: task.customPoints ? task.points : "",
+    makeup: false,
+  };
+}
+
+function render() {
+  updateBadges();
+  renderHeader();
+  renderTasks();
+  renderSettlement();
+  renderRewards();
+  renderBadges();
+  renderScheduleEditor();
+  renderCloudPanel();
+  saveState();
+}
+
+function initCloudSync() {
+  if (!cloud.configured) return;
+  if (!window.firebase?.initializeApp) {
+    cloud.configured = false;
+    return;
+  }
+  try {
+    firebase.initializeApp(window.GEORGE_FIREBASE_CONFIG);
+    cloud.auth = firebase.auth();
+    cloud.db = firebase.firestore();
+    cloud.auth.onAuthStateChanged((user) => {
+      cloud.user = user;
+      if (cloud.unsubscribe) {
+        cloud.unsubscribe();
+        cloud.unsubscribe = null;
+      }
+      if (!user) {
+        cloud.ready = false;
+        renderCloudPanel();
+        return;
+      }
+      subscribeCloudState();
+    });
+  } catch (error) {
+    console.error("Firebase initialization failed", error);
+    cloud.configured = false;
+  }
+}
+
+function subscribeCloudState() {
+  const ref = cloudStateRef();
+  cloud.unsubscribe = ref.onSnapshot(
+    (snapshot) => {
+      cloud.ready = true;
+      if (!snapshot.exists) {
+        queueCloudSave({ immediate: true });
+        renderCloudPanel();
+        return;
+      }
+      const remoteState = snapshot.data()?.state;
+      if (!remoteState) return;
+      const remoteTime = Date.parse(remoteState.updatedAt || "");
+      const localTime = Date.parse(state.updatedAt || "");
+      if (Number.isNaN(remoteTime) || remoteTime <= localTime) {
+        renderCloudPanel();
+        return;
+      }
+      cloud.applyingRemote = true;
+      state = mergeState(remoteState);
+      ensureToday();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      cloud.applyingRemote = false;
+      render();
+    },
+    (error) => {
+      console.error("Firestore subscription failed", error);
+      cloud.ready = false;
+      renderCloudPanel();
+      toast("云端同步连接失败，请检查 Firebase 权限。");
+    },
+  );
+}
+
+function queueCloudSave(options = {}) {
+  if (!cloud.configured || !cloud.user || !cloud.db || cloud.applyingRemote) return;
+  window.clearTimeout(cloud.saveTimer);
+  const delay = options.immediate ? 0 : 700;
+  cloud.saveTimer = window.setTimeout(() => {
+    cloudStateRef()
+      .set(
+        {
+          state,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: cloud.user.uid,
+        },
+        { merge: true },
+      )
+      .catch((error) => {
+        console.error("Cloud save failed", error);
+        toast("云端保存失败，已保存在本机。");
+      });
+  }, delay);
+}
+
+function cloudStateRef() {
+  const path = window.GEORGE_FIREBASE_DATA_PATH || "families/george/state/current";
+  return cloud.db.doc(path);
+}
+
+function mergeState(remoteState) {
+  const base = defaultState();
+  return {
+    ...base,
+    ...remoteState,
+    schedules: { ...base.schedules, ...(remoteState.schedules || {}) },
+    flags: { ...base.flags, ...(remoteState.flags || {}) },
+  };
+}
+
+function renderCloudPanel() {
+  if (!elements.cloudPanel) return;
+  if (!cloud.configured) {
+    elements.cloudPanel.innerHTML = `
+      <div class="cloud-status offline">
+        <strong>云同步未配置</strong>
+        <p>填写 <code>firebase-config.js</code> 后，可启用 Firebase 多终端同步。</p>
+      </div>
+    `;
+    return;
+  }
+  if (!cloud.user) {
+    elements.cloudPanel.innerHTML = `
+      <div class="cloud-status">
+        <strong>云同步待登录</strong>
+        <p>登录 Google 账号后，数据会同步到 Firestore。</p>
+        <button id="googleSignInButton" class="primary-button" type="button">使用 Google 登录</button>
+      </div>
+    `;
+    document.querySelector("#googleSignInButton")?.addEventListener("click", signInWithGoogle);
+    return;
+  }
+  elements.cloudPanel.innerHTML = `
+    <div class="cloud-status online">
+      <strong>云同步已开启</strong>
+      <p>${escapeHtml(cloud.user.email || cloud.user.displayName || cloud.user.uid)} · ${cloud.ready ? "已连接" : "连接中"}</p>
+      <button id="googleSignOutButton" class="ghost-button" type="button">退出登录</button>
+    </div>
+  `;
+  document.querySelector("#googleSignOutButton")?.addEventListener("click", () => cloud.auth.signOut());
+}
+
+function signInWithGoogle() {
+  if (!cloud.auth) return;
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  cloud.auth.signInWithPopup(provider).catch((error) => {
+    console.error("Google sign-in failed", error);
+    const code = error?.code || "unknown";
+    const message = error?.message || "";
+    toast(`Google 登录失败：${code}`);
+    renderCloudError(code, message);
+  });
+}
+
+function renderCloudError(code, message) {
+  if (!elements.cloudPanel) return;
+  elements.cloudPanel.innerHTML = `
+    <div class="cloud-status offline">
+      <strong>Google 登录失败</strong>
+      <p><code>${escapeHtml(code)}</code></p>
+      <p>${escapeHtml(message)}</p>
+      <button id="googleSignInButton" class="primary-button" type="button">重新使用 Google 登录</button>
+    </div>
+  `;
+  document.querySelector("#googleSignInButton")?.addEventListener("click", signInWithGoogle);
+}
+
+function renderHeader() {
+  const currentTitle = state.currentTitle || "成长任务新手";
+  const estimate = calculateToday({ preview: true });
+  const climbing = calculateClimbingStatus();
+  const box = getTreasureBox(todayKey);
+
+  elements.profileLine.textContent = `George · ${currentTitle}`;
+  elements.totalPoints.textContent = state.points;
+  elements.estimatedPoints.textContent = estimate.total;
+  elements.streakDays.textContent = `${state.streak} 天`;
+  elements.multiplierText.textContent = `今日倍率 ${getMultiplier(state.streak).toFixed(1)} 倍`;
+  elements.climbingStatus.textContent = `${climbing.done} / ${climbing.total}`;
+  elements.climbingHint.textContent = climbing.qualified ? "本周已获得攀岩课资格" : `还差 ${climbing.remaining} 项学习任务`;
+  elements.treasureBanner.classList.toggle("hidden", !box);
+
+  const todayTasks = todaysTasks();
+  const studyTasks = todayTasks.filter((task) => task.type === "study");
+  const habitTasks = todayTasks.filter((task) => task.type === "habit");
+  const studyDone = studyTasks.filter((task) => isDone(recordFor(todayKey, task.id))).length;
+  const habitDone = habitTasks.filter((task) => isDone(recordFor(todayKey, task.id))).length;
+  const habitPercent = habitTasks.length ? Math.round((habitDone / habitTasks.length) * 100) : 100;
+  elements.studyProgress.textContent = `${studyDone} / ${studyTasks.length}`;
+  elements.habitProgress.textContent = `${habitPercent}%`;
+}
+
+function renderTasks() {
+  const groups = [
+    { type: "study", title: "学习任务" },
+    { type: "habit", title: "生活习惯" },
+    { type: "class", title: "课外班" },
+    { type: "bonus", title: "加分任务" },
+  ];
+  const todayTasks = todaysTasks();
+  elements.taskSections.innerHTML = groups
+    .map((group) => {
+      const tasks = todayTasks.filter((task) => task.type === group.type);
+      if (!tasks.length) return "";
+      return `
+        <section>
+          <h2>${group.title}</h2>
+          <div class="task-grid">
+            ${tasks.map(renderTaskCard).join("")}
+          </div>
+        </section>
+      `;
+    })
+    .join("");
+
+  elements.taskSections.querySelectorAll("[data-status]").forEach((button) => {
+    button.addEventListener("click", () => setTaskStatus(button.dataset.task, button.dataset.status));
+  });
+  elements.taskSections.querySelectorAll("[data-field]").forEach((input) => {
+    input.addEventListener("input", () => updateTaskField(input.dataset.task, input.dataset.field, input.value, input.type));
+  });
+  elements.taskSections.querySelectorAll("[data-won]").forEach((button) => {
+    button.addEventListener("click", () => setGoWin(button.dataset.task, button.dataset.won === "true"));
+  });
+}
+
+function renderTaskCard(task) {
+  const record = recordFor(todayKey, task.id);
+  const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "completed" : "";
+  return `
+    <article class="task-card ${statusClass}">
+      <div class="task-title-row">
+        <h3>${escapeHtml(displayTaskName(task, record))}</h3>
+        <span class="point-pill">+${displayTaskPoints(task, record)}</span>
+      </div>
+      <p class="task-meta">${taskTypeText(task.type)}${task.bonusLabel ? ` · ${task.bonusLabel}` : ""}</p>
+      ${renderTaskControls(task, record)}
+    </article>
+  `;
+}
+
+function renderTaskControls(task, record) {
+  if (task.type === "study") {
+    return `
+      <div class="field-grid">
+        <div class="field-row">
+          <label>用时（分钟）<input data-task="${task.id}" data-field="duration" type="number" min="0" value="${escapeAttr(record.duration)}" /></label>
+          ${renderSpecialField(task, record)}
+        </div>
+        ${renderSecondSpecialField(task, record)}
+        <label>备注<textarea data-task="${task.id}" data-field="note">${escapeHtml(record.note)}</textarea></label>
+        <div class="segmented">
+          ${statusButton(task.id, "completed", "完成", record.status === "completed", "done")}
+          ${statusButton(task.id, "excellent", "优秀完成", record.status === "excellent", "excellent")}
+        </div>
+      </div>
+    `;
+  }
+  if (task.type === "habit") {
+    return `
+      <div class="segmented">
+        ${statusButton(task.id, "completed", record.status === "completed" ? "取消完成" : "完成", record.status === "completed", "done")}
+      </div>
+    `;
+  }
+  if (task.type === "class") {
+    return `
+      <div class="segmented">
+        ${statusButton(task.id, "completed", "已参加", record.status === "completed", "done")}
+        ${statusButton(task.id, "excellent", "老师表扬", record.status === "excellent", "excellent")}
+      </div>
+    `;
+  }
+  return `
+    <div class="field-grid">
+      ${task.customPoints ? `
+        <div class="field-row">
+          <label>内容<input data-task="${task.id}" data-field="customName" value="${escapeAttr(record.customName)}" placeholder="做了什么" /></label>
+          <label>积分<input data-task="${task.id}" data-field="customPoints" type="number" min="1" max="20" value="${escapeAttr(record.customPoints || task.points)}" /></label>
+        </div>
+      ` : ""}
+      <div class="segmented">
+        ${statusButton(task.id, "completed", record.status === "completed" ? "取消完成" : "完成", record.status === "completed", "done")}
+      </div>
+    </div>
+  `;
+}
+
+function renderSpecialField(task, record) {
+  if (task.id === "piano-practice") {
+    return `<label>曲目名称<input data-task="${task.id}" data-field="title" value="${escapeAttr(record.title)}" placeholder="例如：小奏鸣曲" /></label>`;
+  }
+  if (task.id === "go-game") {
+    return `<label>对手级别<input data-task="${task.id}" data-field="level" value="${escapeAttr(record.level)}" placeholder="例如：20级、1段" /></label>`;
+  }
+  if (task.id === "chinese-reading" || task.id === "english-reading") {
+    return `<label>书名<input data-task="${task.id}" data-field="title" value="${escapeAttr(record.title)}" placeholder="正在读的书" /></label>`;
+  }
+  return `<span></span>`;
+}
+
+function renderSecondSpecialField(task, record) {
+  if (task.id === "piano-practice") {
+    return `<label>曲目完成进度（%）<input data-task="${task.id}" data-field="progress" type="number" min="0" max="100" value="${escapeAttr(record.progress)}" /></label>`;
+  }
+  if (task.id === "chinese-reading" || task.id === "english-reading") {
+    return `<label>书籍阅读进度（%）<input data-task="${task.id}" data-field="progress" type="number" min="0" max="100" value="${escapeAttr(record.progress)}" /></label>`;
+  }
+  if (task.id === "go-game") {
+    return `
+      <div>
+        <p class="field-hint">是否获胜</p>
+        <div class="segmented">
+          <button class="action-button ${record.won ? "active excellent" : ""}" data-task="${task.id}" data-won="true" type="button">获胜</button>
+          <button class="action-button ${!record.won ? "active" : ""}" data-task="${task.id}" data-won="false" type="button">未获胜</button>
+        </div>
+      </div>
+    `;
+  }
+  return "";
+}
+
+function statusButton(taskId, status, label, active, kind) {
+  return `<button class="action-button ${active ? `active ${kind}` : ""}" data-task="${taskId}" data-status="${status}" type="button">${label}</button>`;
+}
+
+function setTaskStatus(taskId, status) {
+  if (isTodaySettled()) {
+    toast("今天已结算，如需修改请先重置体验数据或后续使用撤销结算。");
+    return;
+  }
+  const task = taskById(taskId);
+  const record = recordFor(todayKey, taskId);
+  if (record.status === status) {
+    record.status = "pending";
+  } else {
+    record.status = status;
+  }
+  render();
+}
+
+function setGoWin(taskId, won) {
+  const record = recordFor(todayKey, taskId);
+  record.won = won;
+  if (won) record.status = "excellent";
+  render();
+}
+
+function updateTaskField(taskId, field, value, inputType) {
+  const record = recordFor(todayKey, taskId);
+  record[field] = inputType === "number" ? String(value) : value;
+  saveState();
+  renderHeader();
+  renderSettlement();
+}
+
+function renderSettlement() {
+  const calc = calculateToday({ preview: true });
+  const settled = state.settlements[todayKey];
+  const record = state.records[todayKey];
+  elements.settlementPanel.innerHTML = `
+    <div class="settlement-grid">
+      <div>
+        <div class="calc-panel">
+          <div class="calc-line"><span>结算状态</span><strong>${settled ? "已结算" : "待结算"}</strong></div>
+          <div class="calc-line"><span>学习任务</span><strong>${calc.studyDone} / ${calc.studyTotal}</strong></div>
+          <div class="calc-line"><span>生活习惯</span><strong>${calc.habitPercent}%</strong></div>
+          <div class="calc-line"><span>今日达标</span><strong>${record.leave ? "请假/特殊日" : calc.qualified ? "达标" : "未达标"}</strong></div>
+          <div class="calc-line"><span>神秘宝箱</span><strong>${calc.boxLabel}</strong></div>
+        </div>
+        <h2 style="margin-top:18px">今日记录</h2>
+        <div class="list-panel">${todaysTasks().map(renderSettlementTask).join("")}</div>
+      </div>
+      <div>
+        <div class="calc-panel">
+          <div class="calc-line"><span>核心基础分</span><strong>${calc.coreBase}</strong></div>
+          <div class="calc-line"><span>连续倍率</span><strong>${calc.multiplier.toFixed(1)}</strong></div>
+          <div class="calc-line"><span>倍率后核心分</span><strong>${calc.coreWithMultiplier}</strong></div>
+          <div class="calc-line"><span>课外班积分</span><strong>${calc.classPoints}</strong></div>
+          <div class="calc-line"><span>加分任务积分</span><strong>${calc.bonusPoints}</strong></div>
+          <div class="calc-line"><span>质量奖励</span><strong>${calc.qualityBonus}</strong></div>
+          <div class="calc-line"><span>宝箱积分</span><strong>${calc.boxPoints}</strong></div>
+          <div class="calc-line"><span>连续未达标惩罚</span><strong>-${calc.missPenalty}</strong></div>
+          <div class="calc-line total"><span>今日最终积分</span><strong>${calc.total}</strong></div>
+        </div>
+        <label style="margin:14px 0">
+          <span><input id="leaveToggle" type="checkbox" ${record.leave ? "checked" : ""} /> 标记为请假/特殊日</span>
+        </label>
+        <button id="settleButton" class="primary-button" type="button" ${settled ? "disabled" : ""}>${settled ? "今日已结算" : "确认结算"}</button>
+      </div>
+    </div>
+  `;
+  document.querySelector("#leaveToggle")?.addEventListener("change", (event) => {
+    state.records[todayKey].leave = event.target.checked;
+    render();
+  });
+  document.querySelector("#settleButton")?.addEventListener("click", settleToday);
+  elements.settlementPanel.querySelectorAll("[data-settle-status]").forEach((button) => {
+    button.addEventListener("click", () => setTaskStatus(button.dataset.task, button.dataset.settleStatus));
+  });
+}
+
+function renderSettlementTask(task) {
+  const record = recordFor(todayKey, task.id);
+  const detail = [
+    statusText(record.status, task.type),
+    record.duration ? `${record.duration} 分钟` : "",
+    record.title ? `《${escapeHtml(record.title)}》` : "",
+    record.progress ? `${record.progress}%` : "",
+    record.level ? `对手 ${escapeHtml(record.level)}` : "",
+    task.id === "go-game" ? (record.won ? "获胜" : "未获胜") : "",
+    record.note ? `备注：${escapeHtml(record.note)}` : "",
+  ].filter(Boolean).join(" · ");
+  return `
+    <div class="list-item">
+      <div>
+        <strong>${escapeHtml(displayTaskName(task, record))}</strong>
+        <p class="muted" style="margin:6px 0 0">${detail || "未填写"}</p>
+        <div class="weekday-row">
+          ${settlementButtons(task, record)}
+        </div>
+      </div>
+      <span class="point-pill">+${earnedRawPoints(task, record)}</span>
+    </div>
+  `;
+}
+
+function settlementButtons(task, record) {
+  if (task.type === "study") {
+    return `
+      <button class="ghost-button" data-task="${task.id}" data-settle-status="completed" type="button">${record.status === "completed" ? "取消完成" : "改为完成"}</button>
+      <button class="ghost-button" data-task="${task.id}" data-settle-status="excellent" type="button">${record.status === "excellent" ? "取消优秀" : "改为优秀"}</button>
+    `;
+  }
+  if (task.type === "class") {
+    return `
+      <button class="ghost-button" data-task="${task.id}" data-settle-status="completed" type="button">${record.status === "completed" ? "取消参加" : "改为参加"}</button>
+      <button class="ghost-button" data-task="${task.id}" data-settle-status="excellent" type="button">${record.status === "excellent" ? "取消表扬" : "改为表扬"}</button>
+    `;
+  }
+  return `<button class="ghost-button" data-task="${task.id}" data-settle-status="completed" type="button">${record.status === "completed" ? "取消完成" : "改为完成"}</button>`;
+}
+
+function settleToday() {
+  if (isTodaySettled()) return;
+  const calc = calculateToday({ preview: false });
+  state.points = Math.max(0, state.points + calc.total);
+
+  if (!state.records[todayKey].leave) {
+    if (calc.qualified) {
+      if (state.flags.hadMissStreak && state.streak + 1 >= 3) state.flags.comeback = true;
+      state.streak += 1;
+      state.missStreak = 0;
+    } else {
+      state.streak = 0;
+      state.missStreak += 1;
+      if (state.missStreak >= 2) state.flags.hadMissStreak = true;
+    }
+  }
+
+  state.settlements[todayKey] = {
+    date: todayKey,
+    points: calc.total,
+    qualified: calc.qualified,
+    leave: state.records[todayKey].leave,
+    box: calc.boxResult,
+    settledAt: new Date().toISOString(),
+    streakAfter: state.streak,
+    missStreakAfter: state.missStreak,
+  };
+  updateBadges();
+  toast(`今日结算完成，${calc.total >= 0 ? "+" : ""}${calc.total} 分`);
+  render();
+}
+
+function calculateToday() {
+  const record = state.records[todayKey];
+  const tasks = todaysTasks();
+  const studyTasks = tasks.filter((task) => task.type === "study");
+  const habitTasks = tasks.filter((task) => task.type === "habit");
+  const studyDone = studyTasks.filter((task) => isDone(recordFor(todayKey, task.id))).length;
+  const habitDone = habitTasks.filter((task) => isDone(recordFor(todayKey, task.id))).length;
+  const habitPercent = habitTasks.length ? Math.round((habitDone / habitTasks.length) * 100) : 100;
+  const qualified = studyDone === studyTasks.length && habitPercent >= 80;
+  const multiplier = getMultiplier(state.streak);
+
+  let coreBase = 0;
+  let classPoints = 0;
+  let bonusPoints = 0;
+  let qualityBonus = 0;
+  tasks.forEach((task) => {
+    const taskRecord = recordFor(todayKey, task.id);
+    if (!isDone(taskRecord)) return;
+    if (task.type === "study" || task.type === "habit") coreBase += Number(task.points);
+    if (task.type === "class") classPoints += Number(task.points);
+    if (task.type === "bonus") bonusPoints += displayTaskPoints(task, taskRecord);
+    if ((task.type === "study" || task.type === "class") && taskRecord.status === "excellent") qualityBonus += 1;
+  });
+
+  const coreWithMultiplier = Math.round(coreBase * multiplier);
+  const projectedMissStreak = record.leave || qualified ? 0 : state.missStreak + 1;
+  const missPenalty = record.leave ? 0 : missPenaltyFor(projectedMissStreak);
+  const box = getTreasureBox(todayKey);
+  let boxPoints = 0;
+  let boxLabel = box ? "有宝箱，结算后揭晓" : "无";
+  let boxResult = null;
+  if (box && !record.leave) {
+    if (box.type === "reward" && qualified) {
+      boxPoints = 5;
+      boxLabel = "奖励宝箱 +5";
+      boxResult = "reward-opened";
+    } else if (box.type === "penalty" && !qualified) {
+      boxPoints = -5;
+      boxLabel = "惩罚宝箱 -5";
+      boxResult = "penalty-opened";
+    } else {
+      boxLabel = "宝箱未触发";
+      boxResult = "not-opened";
+    }
+  }
+  const total = coreWithMultiplier + classPoints + bonusPoints + qualityBonus + boxPoints - missPenalty;
+  return {
+    studyDone,
+    studyTotal: studyTasks.length,
+    habitDone,
+    habitTotal: habitTasks.length,
+    habitPercent,
+    qualified,
+    multiplier,
+    coreBase,
+    coreWithMultiplier,
+    classPoints,
+    bonusPoints,
+    qualityBonus,
+    boxPoints,
+    boxLabel,
+    boxResult,
+    missPenalty,
+    total,
+  };
+}
+
+function renderRewards() {
+  elements.rewardGrid.innerHTML = REWARDS.map((reward) => {
+    const canRedeem = reward.flexible || state.points >= reward.cost;
+    return `
+      <article class="reward-card">
+        <h3>${reward.name}</h3>
+        <p class="reward-note">${reward.detail}</p>
+        <p class="reward-note">${reward.flexible ? "按实际价值 × 10" : `需要 ${reward.cost} 分`}</p>
+        ${reward.flexible ? `
+          <label>预计价值（元）<input id="flexValue" type="number" min="1" value="5" /></label>
+        ` : ""}
+        <button class="redeem-button" data-reward="${reward.id}" ${canRedeem ? "" : "disabled"} type="button">${canRedeem ? "申请兑换" : "积分不足"}</button>
+      </article>
+    `;
+  }).join("");
+  elements.rewardGrid.querySelectorAll("[data-reward]").forEach((button) => {
+    button.addEventListener("click", () => requestRedemption(button.dataset.reward));
+  });
+  elements.redemptionList.innerHTML = state.redemptions.length
+    ? state.redemptions.slice().reverse().map(renderRedemption).join("")
+    : `<p class="muted">暂无兑换申请。</p>`;
+  elements.redemptionList.querySelectorAll("[data-approve]").forEach((button) => {
+    button.addEventListener("click", () => approveRedemption(button.dataset.approve));
+  });
+  elements.redemptionList.querySelectorAll("[data-cancel]").forEach((button) => {
+    button.addEventListener("click", () => cancelRedemption(button.dataset.cancel));
+  });
+}
+
+function requestRedemption(rewardId) {
+  const reward = REWARDS.find((item) => item.id === rewardId);
+  if (!reward) return;
+  const flexValue = Number(document.querySelector("#flexValue")?.value || 0);
+  const cost = reward.flexible ? Math.max(10, Math.round(flexValue * 10)) : reward.cost;
+  if (state.points < cost) {
+    toast("积分不足，暂时不能申请。");
+    return;
+  }
+  state.redemptions.push({
+    id: `redeem-${Date.now()}`,
+    rewardId,
+    name: reward.flexible ? `灵活兑换（约 ${flexValue} 元）` : reward.name,
+    cost,
+    status: "pending",
+    date: todayKey,
+  });
+  toast("已提交兑换申请，等待家长确认。");
+  render();
+}
+
+function renderRedemption(item) {
+  return `
+    <div class="list-item">
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <p class="muted" style="margin:6px 0 0">${item.cost} 分 · ${redemptionStatusText(item.status)} · ${item.date}</p>
+      </div>
+      <div class="action-row">
+        <button class="ghost-button" data-approve="${item.id}" ${item.status !== "pending" ? "disabled" : ""} type="button">确认</button>
+        <button class="ghost-button danger" data-cancel="${item.id}" ${item.status !== "pending" ? "disabled" : ""} type="button">取消</button>
+      </div>
+    </div>
+  `;
+}
+
+function approveRedemption(id) {
+  const item = state.redemptions.find((redemption) => redemption.id === id);
+  if (!item || item.status !== "pending") return;
+  if (state.points < item.cost) {
+    toast("当前积分不足，无法确认兑换。");
+    return;
+  }
+  state.points -= item.cost;
+  item.status = "approved";
+  toast("兑换已确认并扣分。");
+  render();
+}
+
+function cancelRedemption(id) {
+  const item = state.redemptions.find((redemption) => redemption.id === id);
+  if (!item || item.status !== "pending") return;
+  item.status = "cancelled";
+  toast("兑换申请已取消。");
+  render();
+}
+
+function renderBadges() {
+  elements.badgeGrid.innerHTML = BADGES.map((badge) => {
+    const unlocked = state.unlockedBadges.includes(badge.id);
+    const title = badge.hidden && !unlocked ? "隐藏勋章" : badge.name;
+    const condition = badge.hidden && !unlocked ? "达成后自动解锁" : badge.condition;
+    const current = state.currentTitle === badge.title;
+    return `
+      <article class="badge-card ${unlocked ? "" : "locked"}">
+        <div class="badge-mark">${unlocked ? "已" : "?"}</div>
+        <h3>${title}</h3>
+        <p class="badge-condition">${condition}</p>
+        <button class="select-title-button" data-title="${badge.title}" ${unlocked ? "" : "disabled"} type="button">${current ? "正在展示" : `设为${badge.title}`}</button>
+      </article>
+    `;
+  }).join("");
+  elements.badgeGrid.querySelectorAll("[data-title]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.currentTitle = button.dataset.title;
+      toast(`当前称号：${state.currentTitle}`);
+      render();
+    });
+  });
+}
+
+function updateBadges() {
+  const newlyUnlocked = BADGES.filter((badge) => !state.unlockedBadges.includes(badge.id) && badge.test(state));
+  newlyUnlocked.forEach((badge) => state.unlockedBadges.push(badge.id));
+  if (!state.currentTitle && newlyUnlocked[0]) state.currentTitle = newlyUnlocked[0].title;
+}
+
+function renderScheduleEditor() {
+  const groups = [
+    { type: "study", title: "学习任务" },
+    { type: "class", title: "课外班" },
+    { type: "habit", title: "生活习惯" },
+    { type: "bonus", title: "加分任务" },
+  ];
+  elements.scheduleEditor.innerHTML = groups.map((group) => `
+    <section>
+      <h3>${group.title}</h3>
+      ${TASKS.filter((task) => task.type === group.type).map(renderScheduleItem).join("")}
+    </section>
+  `).join("");
+  elements.scheduleEditor.querySelectorAll("[data-schedule]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const days = [...document.querySelectorAll(`[data-schedule="${input.dataset.schedule}"]:checked`)].map((item) => Number(item.value));
+      state.schedules[input.dataset.schedule] = days;
+      render();
+    });
+  });
+}
+
+function renderScheduleItem(task) {
+  const selected = state.schedules[task.id] || [];
+  return `
+    <div class="schedule-item">
+      <div>
+        <strong>${task.name}</strong>
+        <div class="weekday-row">
+          ${WEEKDAYS.map((day, index) => `
+            <label><input data-schedule="${task.id}" type="checkbox" value="${index}" ${selected.includes(index) ? "checked" : ""} />${day}</label>
+          `).join("")}
+        </div>
+      </div>
+      <span class="point-pill">+${task.points}</span>
+    </div>
+  `;
+}
+
+function calculateClimbingStatus() {
+  const dates = currentWeekDates();
+  let total = 0;
+  let done = 0;
+  dates.forEach((dateKey) => {
+    const date = parseDateKey(dateKey);
+    TASKS.filter((task) => task.type === "study" && isScheduled(task, date.getDay())).forEach((task) => {
+      total += 1;
+      const record = state.records[dateKey]?.tasks?.[task.id];
+      if (record && (isDone(record) || record.makeup)) done += 1;
+    });
+  });
+  return { total, done, remaining: Math.max(0, total - done), qualified: total > 0 && done === total };
+}
+
+function todaysTasks() {
+  const day = today.getDay();
+  return TASKS.filter((task) => isScheduled(task, day));
+}
+
+function isScheduled(task, day) {
+  return (state.schedules[task.id] || []).includes(day);
+}
+
+function recordFor(dateKey, taskId) {
+  if (!state.records[dateKey]) state.records[dateKey] = { tasks: {}, leave: false };
+  if (!state.records[dateKey].tasks[taskId]) state.records[dateKey].tasks[taskId] = initialTaskRecord(taskById(taskId));
+  return state.records[dateKey].tasks[taskId];
+}
+
+function taskById(taskId) {
+  return TASKS.find((task) => task.id === taskId);
+}
+
+function isDone(record) {
+  return record.status === "completed" || record.status === "excellent";
+}
+
+function earnedRawPoints(task, record) {
+  if (!isDone(record)) return 0;
+  return displayTaskPoints(task, record) + ((task.type === "study" || task.type === "class") && record.status === "excellent" ? 1 : 0);
+}
+
+function displayTaskPoints(task, record) {
+  if (task.customPoints) return Number(record.customPoints || task.points || 1);
+  return Number(task.points);
+}
+
+function displayTaskName(task, record) {
+  if (task.customPoints && record.customName) return record.customName;
+  return task.name;
+}
+
+function taskTypeText(type) {
+  return { study: "学习任务", habit: "生活习惯", class: "课外班", bonus: "加分任务" }[type] || "";
+}
+
+function statusText(status, type) {
+  if (status === "excellent") return type === "class" ? "老师表扬" : "优秀完成";
+  if (status === "completed") return type === "class" ? "已参加" : "已完成";
+  return "未完成";
+}
+
+function getMultiplier(streak) {
+  if (streak >= 21) return 1.5;
+  if (streak >= 14) return 1.4;
+  if (streak >= 7) return 1.3;
+  if (streak >= 5) return 1.2;
+  if (streak >= 3) return 1.1;
+  return 1;
+}
+
+function missPenaltyFor(missStreak) {
+  if (missStreak === 3) return 3;
+  if (missStreak === 5) return 5;
+  if (missStreak === 7) return 8;
+  return 0;
+}
+
+function ensureTreasureMonth(key) {
+  if (state.treasureBoxes[key]) return;
+  const [year, month] = key.split("-").map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const days = [];
+  while (days.length < 5) {
+    const day = Math.floor(Math.random() * daysInMonth) + 1;
+    if (!days.includes(day)) days.push(day);
+  }
+  state.treasureBoxes[key] = days.map((day, index) => ({
+    date: `${key}-${String(day).padStart(2, "0")}`,
+    type: index < 3 ? "reward" : "penalty",
+  })).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function getTreasureBox(dateKey) {
+  return state.treasureBoxes[dateKey.slice(0, 7)]?.find((box) => box.date === dateKey) || null;
+}
+
+function currentWeekDates() {
+  const start = new Date(today);
+  const day = today.getDay() || 7;
+  start.setDate(today.getDate() - day + 1);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return toDateKey(date);
+  });
+}
+
+function parseDateKey(dateKey) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function monthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function toDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function isTodaySettled() {
+  return Boolean(state.settlements[todayKey]);
+}
+
+function setView(view) {
+  document.querySelectorAll(".tab-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === view);
+  });
+  document.querySelectorAll(".view").forEach((section) => {
+    section.classList.toggle("active", section.id === `${view}View`);
+  });
+}
+
+function resetData() {
+  localStorage.removeItem(STORAGE_KEY);
+  state = loadState();
+  ensureToday();
+  toast("体验数据已重置");
+  render();
+}
+
+function countTaskStatus(s, taskId, status) {
+  return Object.values(s.records).filter((day) => day.tasks?.[taskId]?.status === status).length;
+}
+
+function countTaskDone(s, taskId) {
+  return Object.values(s.records).filter((day) => isDone(day.tasks?.[taskId] || {})).length;
+}
+
+function countExcellent(s) {
+  return Object.values(s.records).reduce((sum, day) => {
+    return sum + TASKS.filter((task) => task.type === "study" && day.tasks?.[task.id]?.status === "excellent").length;
+  }, 0);
+}
+
+function countReadingDone(s) {
+  return countTaskDone(s, "chinese-reading") + countTaskDone(s, "english-reading");
+}
+
+function countGoWins(s) {
+  return Object.values(s.records).filter((day) => day.tasks?.["go-game"]?.won).length;
+}
+
+function countHabitQualifiedDays(s) {
+  return Object.entries(s.records).filter(([dateKey, day]) => {
+    const date = parseDateKey(dateKey);
+    const habitTasks = TASKS.filter((task) => task.type === "habit" && isScheduled(task, date.getDay()));
+    if (!habitTasks.length) return false;
+    const done = habitTasks.filter((task) => isDone(day.tasks?.[task.id] || {})).length;
+    return done / habitTasks.length >= 0.8;
+  }).length;
+}
+
+function countRewardBoxes(s) {
+  return Object.values(s.settlements).filter((settlement) => settlement.box === "reward-opened").length;
+}
+
+function hasPerfectEnergyDay(s) {
+  return Object.entries(s.records).some(([dateKey, day]) => {
+    const date = parseDateKey(dateKey);
+    const core = TASKS.filter((task) => (task.type === "study" || task.type === "habit") && isScheduled(task, date.getDay()));
+    const allDone = core.length > 0 && core.every((task) => isDone(day.tasks?.[task.id] || {}));
+    const excellent = TASKS.some((task) => task.type === "study" && day.tasks?.[task.id]?.status === "excellent");
+    return allDone && excellent;
+  });
+}
+
+function hasAllRounderWeek(s) {
+  const dates = currentWeekDates();
+  const doneTypes = new Set();
+  dates.forEach((dateKey) => {
+    const tasks = s.records[dateKey]?.tasks || {};
+    if (Object.entries(tasks).some(([id, record]) => taskById(id)?.type === "study" && isDone(record))) doneTypes.add("study");
+    if (Object.entries(tasks).some(([id, record]) => taskById(id)?.type === "habit" && isDone(record))) doneTypes.add("habit");
+    if (isDone(tasks["chinese-reading"] || {}) || isDone(tasks["english-reading"] || {})) doneTypes.add("reading");
+    if (isDone(tasks["piano-practice"] || {})) doneTypes.add("piano");
+    if (isDone(tasks["go-game"] || {})) doneTypes.add("go");
+  });
+  return ["study", "habit", "reading", "piano", "go"].every((item) => doneTypes.has(item));
+}
+
+function redemptionStatusText(status) {
+  return { pending: "待确认", approved: "已兑换", cancelled: "已取消" }[status] || status;
+}
+
+function toast(message) {
+  elements.toast.textContent = message;
+  elements.toast.classList.add("show");
+  window.clearTimeout(toast.timer);
+  toast.timer = window.setTimeout(() => elements.toast.classList.remove("show"), 2200);
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replaceAll("\n", " ");
+}

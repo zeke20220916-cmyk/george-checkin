@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isFamilyMember() {
+      return request.auth != null
+        && request.auth.token.email in [
+          "zeke20220916@gmail.com"
+        ];
+    }
+
+    match /families/george/state/current {
+      allow read, write: if isFamilyMember();
+    }
+  }
+}
