@@ -3,6 +3,7 @@ const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "�
 const today = new Date();
 const todayKey = toDateKey(today);
 let selectedHistoryDate = todayKey;
+let statsRange = "week";
 
 const TASKS = [
   { id: "school-homework", name: "学校作业", type: "study", points: 2, bonusLabel: "全对 +1", weekdays: [1, 2, 3, 4, 5] },
@@ -82,6 +83,7 @@ const elements = {
   historyPanel: document.querySelector("#historyPanel"),
   climbingPanel: document.querySelector("#climbingPanel"),
   climbingCard: document.querySelector("#climbingCard"),
+  statsPanel: document.querySelector("#statsPanel"),
   toast: document.querySelector("#toast"),
 };
 
@@ -117,6 +119,15 @@ elements.climbingCard.addEventListener("keydown", (event) => {
 
 document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
+});
+document.querySelectorAll("[data-stats-range]").forEach((button) => {
+  button.addEventListener("click", () => {
+    statsRange = button.dataset.statsRange;
+    document.querySelectorAll("[data-stats-range]").forEach((item) => {
+      item.classList.toggle("active", item.dataset.statsRange === statsRange);
+    });
+    renderStats();
+  });
 });
 elements.resetButton.addEventListener("click", resetData);
 
@@ -188,6 +199,8 @@ function initialTaskRecord(task) {
     progress: "",
     won: false,
     level: "",
+    selfLevel: "",
+    pieces: [],
     customName: "",
     customPoints: task.customPoints ? task.points : "",
     makeup: false,
@@ -205,6 +218,7 @@ function render() {
   renderCloudPanel();
   renderHistory();
   renderClimbingPanel();
+  renderStats();
   saveState();
 }
 
@@ -422,6 +436,15 @@ function renderTasks() {
   elements.taskSections.querySelectorAll("[data-won]").forEach((button) => {
     button.addEventListener("click", () => setGoWin(button.dataset.task, button.dataset.won === "true"));
   });
+  elements.taskSections.querySelectorAll("[data-piece-field]").forEach((input) => {
+    input.addEventListener("input", () => updatePianoPiece(Number(input.dataset.pieceIndex), input.dataset.pieceField, input.value));
+  });
+  elements.taskSections.querySelectorAll("[data-piece-delete]").forEach((button) => {
+    button.addEventListener("click", () => deletePianoPiece(Number(button.dataset.pieceDelete)));
+  });
+  elements.taskSections.querySelectorAll("[data-piece-add]").forEach((button) => {
+    button.addEventListener("click", addPianoPiece);
+  });
 }
 
 function renderTaskCard(task) {
@@ -488,10 +511,10 @@ function renderTaskControls(task, record) {
 
 function renderSpecialField(task, record) {
   if (task.id === "piano-practice") {
-    return `<label>曲目名称<input data-task="${task.id}" data-field="title" value="${escapeAttr(record.title)}" placeholder="例如：小奏鸣曲" /></label>`;
+    return `<span></span>`;
   }
   if (task.id === "go-game") {
-    return `<label>对手级别<input data-task="${task.id}" data-field="level" value="${escapeAttr(record.level)}" placeholder="例如：20级、1段" /></label>`;
+    return `<label>George 级别<input data-task="${task.id}" data-field="selfLevel" value="${escapeAttr(record.selfLevel)}" placeholder="例如：20级、1段" /></label>`;
   }
   if (task.id === "chinese-reading" || task.id === "english-reading") {
     return `<label>书名<input data-task="${task.id}" data-field="title" value="${escapeAttr(record.title)}" placeholder="正在读的书" /></label>`;
@@ -501,13 +524,14 @@ function renderSpecialField(task, record) {
 
 function renderSecondSpecialField(task, record) {
   if (task.id === "piano-practice") {
-    return `<label>曲目完成进度（%）<input data-task="${task.id}" data-field="progress" type="number" min="0" max="100" value="${escapeAttr(record.progress)}" /></label>`;
+    return renderPianoPieces(record);
   }
   if (task.id === "chinese-reading" || task.id === "english-reading") {
     return `<label>书籍阅读进度（%）<input data-task="${task.id}" data-field="progress" type="number" min="0" max="100" value="${escapeAttr(record.progress)}" /></label>`;
   }
   if (task.id === "go-game") {
     return `
+      <label>对手级别<input data-task="${task.id}" data-field="level" value="${escapeAttr(record.level)}" placeholder="例如：20级、1段" /></label>
       <div>
         <p class="field-hint">是否获胜</p>
         <div class="segmented">
@@ -518,6 +542,73 @@ function renderSecondSpecialField(task, record) {
     `;
   }
   return "";
+}
+
+function renderPianoPieces(record) {
+  const pieces = normalizedPianoPieces(record);
+  return `
+    <div class="piece-list">
+      <div class="piece-list-header">
+        <strong>练习曲目</strong>
+        <button class="ghost-button" data-piece-add="true" type="button">添加曲目</button>
+      </div>
+      ${pieces.map((piece, index) => `
+        <div class="piece-item">
+          <label>曲目名称<input data-piece-index="${index}" data-piece-field="name" value="${escapeAttr(piece.name)}" placeholder="例如：小奏鸣曲" /></label>
+          <label>进度（%）<input data-piece-index="${index}" data-piece-field="progress" type="number" min="0" max="100" value="${escapeAttr(piece.progress)}" /></label>
+          <label>曲目备注<input data-piece-index="${index}" data-piece-field="note" value="${escapeAttr(piece.note)}" placeholder="可选" /></label>
+          <button class="ghost-button danger" data-piece-delete="${index}" type="button">删除</button>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function normalizedPianoPieces(record) {
+  if (Array.isArray(record.pieces) && record.pieces.length) {
+    return record.pieces.map((piece) => ({
+      name: piece.name || "",
+      progress: piece.progress || "",
+      note: piece.note || "",
+    }));
+  }
+  if (record.title || record.progress) {
+    return [{ name: record.title || "", progress: record.progress || "", note: "" }];
+  }
+  return [{ name: "", progress: "", note: "" }];
+}
+
+function setPianoPieces(record, pieces) {
+  record.pieces = pieces;
+  const first = pieces[0] || { name: "", progress: "" };
+  record.title = first.name || "";
+  record.progress = first.progress || "";
+}
+
+function updatePianoPiece(index, field, value) {
+  const record = recordFor(todayKey, "piano-practice");
+  const pieces = normalizedPianoPieces(record);
+  pieces[index] = { ...(pieces[index] || { name: "", progress: "", note: "" }), [field]: value };
+  setPianoPieces(record, pieces);
+  saveState();
+  renderHeader();
+  renderSettlement();
+  renderStats();
+}
+
+function addPianoPiece() {
+  const record = recordFor(todayKey, "piano-practice");
+  const pieces = normalizedPianoPieces(record);
+  pieces.push({ name: "", progress: "", note: "" });
+  setPianoPieces(record, pieces);
+  render();
+}
+
+function deletePianoPiece(index) {
+  const record = recordFor(todayKey, "piano-practice");
+  const pieces = normalizedPianoPieces(record).filter((_, itemIndex) => itemIndex !== index);
+  setPianoPieces(record, pieces.length ? pieces : [{ name: "", progress: "", note: "" }]);
+  render();
 }
 
 function statusButton(taskId, status, label, active, kind) {
@@ -926,14 +1017,230 @@ function renderClimbingTask(dateKey, task) {
 }
 
 function taskDetailText(task, record) {
+  const pianoPieces = task.id === "piano-practice"
+    ? normalizedPianoPieces(record).filter((piece) => piece.name || piece.progress).map((piece) => `${piece.name || "未命名曲目"} ${piece.progress || 0}%`).join("；")
+    : "";
   return [
     record.duration ? `${record.duration} 分钟` : "",
-    record.title ? `《${escapeHtml(record.title)}》` : "",
-    record.progress ? `${record.progress}%` : "",
+    pianoPieces,
+    task.id !== "piano-practice" && record.title ? `《${escapeHtml(record.title)}》` : "",
+    task.id !== "piano-practice" && record.progress ? `${record.progress}%` : "",
+    task.id === "go-game" && record.selfLevel ? `George ${escapeHtml(record.selfLevel)}` : "",
     record.level ? `对手 ${escapeHtml(record.level)}` : "",
     task.id === "go-game" ? (record.won ? "获胜" : "未获胜") : "",
     record.note ? `备注：${escapeHtml(record.note)}` : "",
   ].filter(Boolean).join(" · ");
+}
+
+function renderStats() {
+  if (!elements.statsPanel) return;
+  const stats = calculateStats(statsRange);
+  elements.statsPanel.innerHTML = `
+    <section class="stats-grid">
+      ${statCard("总得分", `${stats.totalPoints} 分`, "已结算积分")}
+      ${statCard("学习完成率", `${stats.studyRate}%`, `${stats.studyDone} / ${stats.studyTotal}`)}
+      ${statCard("习惯完成率", `${stats.habitRate}%`, `${stats.habitDone} / ${stats.habitTotal}`)}
+      ${statCard("学习用时", formatHours(stats.studyMinutes), `${stats.studyMinutes} 分钟`)}
+      ${statCard("优秀完成", `${stats.excellentCount} 次`, "学习任务")}
+      ${statCard("达标天数", `${stats.qualifiedDays} 天`, `${stats.settledDays} 天已结算`)}
+    </section>
+
+    <section class="stats-section">
+      <h2>需要关注的任务</h2>
+      <div class="stats-table">
+        ${stats.lowCompletion.length ? stats.lowCompletion.map((item, index) => `
+          <div class="stats-row">
+            <span>${index + 1}</span>
+            <strong>${item.name}</strong>
+            <span>${item.rate}%</span>
+            <span>${item.done} / ${item.total}</span>
+            <span>优秀 ${item.excellent}</span>
+            <span>${item.minutes} 分钟</span>
+          </div>
+        `).join("") : `<p class="muted">这个范围内没有需要特别关注的任务。</p>`}
+      </div>
+    </section>
+
+    <section class="achievement-grid">
+      <article class="achievement-card">
+        <h2>钢琴成果</h2>
+        <p>${stats.piano.summary}</p>
+        ${renderNameProgressTable(stats.piano.items, "曲目")}
+      </article>
+      <article class="achievement-card">
+        <h2>围棋成果</h2>
+        <p>${stats.go.summary}</p>
+      </article>
+      <article class="achievement-card">
+        <h2>阅读成果</h2>
+        <p>${stats.reading.summary}</p>
+        ${renderNameProgressTable(stats.reading.items, "书名")}
+      </article>
+    </section>
+  `;
+}
+
+function statCard(label, value, note) {
+  return `
+    <article class="stat-card">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      <p>${note}</p>
+    </article>
+  `;
+}
+
+function renderNameProgressTable(items, nameLabel) {
+  if (!items.length) return `<p class="muted">暂无记录。</p>`;
+  return `
+    <div class="mini-table">
+      <div class="mini-row header"><span>${nameLabel}</span><span>最新进度</span><span>次数</span><span>用时</span></div>
+      ${items.slice(0, 8).map((item) => `
+        <div class="mini-row">
+          <span>${escapeHtml(item.name)}</span>
+          <span>${item.progress}%</span>
+          <span>${item.count}</span>
+          <span>${item.minutes} 分钟</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function calculateStats(range) {
+  const dateKeys = statDateKeys(range);
+  const taskStats = new Map();
+  let totalPoints = 0;
+  let settledDays = 0;
+  let qualifiedDays = 0;
+  let studyTotal = 0;
+  let studyDone = 0;
+  let habitTotal = 0;
+  let habitDone = 0;
+  let studyMinutes = 0;
+  let excellentCount = 0;
+  const piano = new Map();
+  const reading = new Map();
+  let goGames = 0;
+  let goWins = 0;
+  let firstGoLevel = "";
+  let lastGoLevel = "";
+
+  dateKeys.forEach((dateKey) => {
+    const date = parseDateKey(dateKey);
+    const day = state.records[dateKey];
+    const settlement = state.settlements[dateKey];
+    if (settlement) {
+      settledDays += 1;
+      totalPoints += Number(settlement.points || 0);
+      if (settlement.qualified) qualifiedDays += 1;
+    }
+    tasksForDate(dateKey).forEach((task) => {
+      if (day?.leave) return;
+      const record = day?.tasks?.[task.id] || initialTaskRecord(task);
+      const done = isDone(record);
+      const minutes = Number(record.duration || 0);
+      if (task.type === "study") {
+        studyTotal += 1;
+        if (done) studyDone += 1;
+        if (done) studyMinutes += minutes;
+        if (record.status === "excellent") excellentCount += 1;
+      }
+      if (task.type === "habit") {
+        habitTotal += 1;
+        if (done) habitDone += 1;
+      }
+      if (task.type === "study" || task.type === "habit") {
+        const item = taskStats.get(task.id) || { name: task.name, type: task.type, total: 0, done: 0, excellent: 0, minutes: 0 };
+        item.total += 1;
+        if (done) item.done += 1;
+        if (record.status === "excellent") item.excellent += 1;
+        if (done) item.minutes += minutes;
+        taskStats.set(task.id, item);
+      }
+      if (done && task.id === "piano-practice") {
+        normalizedPianoPieces(record).forEach((piece) => {
+          if (!piece.name) return;
+          const item = piano.get(piece.name) || { name: piece.name, progress: 0, count: 0, minutes: 0, lastDate: "" };
+          item.progress = Number(piece.progress || item.progress || 0);
+          item.count += 1;
+          item.minutes += minutes;
+          item.lastDate = dateKey;
+          piano.set(piece.name, item);
+        });
+      }
+      if (done && (task.id === "chinese-reading" || task.id === "english-reading") && record.title) {
+        const item = reading.get(record.title) || { name: record.title, progress: 0, count: 0, minutes: 0, lastDate: "", type: task.name };
+        item.progress = Number(record.progress || item.progress || 0);
+        item.count += 1;
+        item.minutes += minutes;
+        item.lastDate = dateKey;
+        reading.set(record.title, item);
+      }
+      if (done && task.id === "go-game") {
+        goGames += 1;
+        if (record.won) goWins += 1;
+        if (record.selfLevel && !firstGoLevel) firstGoLevel = record.selfLevel;
+        if (record.selfLevel) lastGoLevel = record.selfLevel;
+      }
+    });
+  });
+
+  const lowCompletion = [...taskStats.values()]
+    .filter((item) => item.total >= 2)
+    .map((item) => ({ ...item, rate: item.total ? Math.round((item.done / item.total) * 100) : 0 }))
+    .sort((a, b) => a.rate - b.rate || b.total - a.total)
+    .slice(0, 8);
+  const pianoItems = [...piano.values()].sort((a, b) => b.lastDate.localeCompare(a.lastDate));
+  const readingItems = [...reading.values()].sort((a, b) => b.lastDate.localeCompare(a.lastDate));
+
+  return {
+    totalPoints,
+    settledDays,
+    qualifiedDays,
+    studyTotal,
+    studyDone,
+    habitTotal,
+    habitDone,
+    studyRate: studyTotal ? Math.round((studyDone / studyTotal) * 100) : 0,
+    habitRate: habitTotal ? Math.round((habitDone / habitTotal) * 100) : 0,
+    studyMinutes,
+    excellentCount,
+    lowCompletion,
+    piano: {
+      items: pianoItems,
+      summary: `George 通过 ${formatHours(sumBy(pianoItems, "minutes"))} 钢琴练习，练习了 ${pianoItems.length} 首曲子，其中 ${pianoItems.filter((item) => item.progress >= 100).length} 首达到 100%。`,
+    },
+    reading: {
+      items: readingItems,
+      summary: `George 用 ${formatHours(sumBy(readingItems, "minutes"))} 阅读了 ${readingItems.length} 本书，其中 ${readingItems.filter((item) => item.progress >= 100).length} 本已读完。`,
+    },
+    go: {
+      summary: goGames
+        ? `George 下了 ${goGames} 盘围棋，赢了 ${goWins} 盘，胜率 ${Math.round((goWins / goGames) * 100)}%。${firstGoLevel || lastGoLevel ? `围棋级别从 ${firstGoLevel || "未记录"} 到 ${lastGoLevel || "未记录"}。` : "级别变化暂无记录。"}`
+        : "暂无围棋对局记录。",
+    },
+  };
+}
+
+function statDateKeys(range) {
+  if (range === "week") return currentWeekDates();
+  const keys = new Set([...Object.keys(state.records), ...Object.keys(state.settlements), todayKey]);
+  if (range === "month") {
+    const currentMonth = todayKey.slice(0, 7);
+    return [...keys].filter((dateKey) => dateKey.startsWith(currentMonth)).sort();
+  }
+  return [...keys].sort();
+}
+
+function formatHours(minutes) {
+  if (!minutes) return "0 小时";
+  const hours = minutes / 60;
+  return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} 小时`;
+}
+
+function sumBy(items, field) {
+  return items.reduce((sum, item) => sum + Number(item[field] || 0), 0);
 }
 
 function renderRewards() {

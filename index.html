@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>George 的个人成长助理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260512-2" />
+    <link rel="stylesheet" href="./styles.css?v=20260512-3" />
   </head>
   <body>
     <main class="app-shell">
@@ -44,6 +44,7 @@
       <nav class="tabs" aria-label="主导航">
         <button class="tab-button active" data-view="checkin" type="button">今日打卡</button>
         <button class="tab-button" data-view="settlement" type="button">晚间结算</button>
+        <button class="tab-button" data-view="stats" type="button">统计</button>
         <button class="tab-button" data-view="rewards" type="button">奖励商店</button>
         <button class="tab-button" data-view="badges" type="button">勋章称号</button>
         <button class="tab-button" data-view="parent" type="button">家长设置</button>
@@ -99,6 +100,21 @@
         <div id="climbingPanel" class="list-panel"></div>
       </section>
 
+      <section id="statsView" class="view">
+        <div class="section-heading">
+          <div>
+            <h2>统计</h2>
+            <p>查看完成率、需要关注的任务，以及阅读、钢琴、围棋成果。</p>
+          </div>
+          <div class="range-tabs" aria-label="统计范围">
+            <button class="range-button active" data-stats-range="week" type="button">本周</button>
+            <button class="range-button" data-stats-range="month" type="button">本月</button>
+            <button class="range-button" data-stats-range="all" type="button">全部</button>
+          </div>
+        </div>
+        <div id="statsPanel" class="stats-panel"></div>
+      </section>
+
       <section id="rewardsView" class="view">
         <div class="section-heading">
           <div>
@@ -150,7 +166,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="./firebase-config.js?v=20260512-2"></script>
-    <script src="./app.js?v=20260512-2"></script>
+    <script src="./firebase-config.js?v=20260512-3"></script>
+    <script src="./app.js?v=20260512-3"></script>
   </body>
 </html>
