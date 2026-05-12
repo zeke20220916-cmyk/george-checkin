@@ -2,6 +2,7 @@ const STORAGE_KEY = "george-growth-assistant-v1";
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 const today = new Date();
 const todayKey = toDateKey(today);
+let selectedHistoryDate = todayKey;
 
 const TASKS = [
   { id: "school-homework", name: "学校作业", type: "study", points: 2, bonusLabel: "全对 +1", weekdays: [1, 2, 3, 4, 5] },
@@ -78,6 +79,9 @@ const elements = {
   scheduleEditor: document.querySelector("#scheduleEditor"),
   cloudPanel: document.querySelector("#cloudPanel"),
   resetButton: document.querySelector("#resetButton"),
+  historyPanel: document.querySelector("#historyPanel"),
+  climbingPanel: document.querySelector("#climbingPanel"),
+  climbingCard: document.querySelector("#climbingCard"),
   toast: document.querySelector("#toast"),
 };
 
@@ -94,6 +98,22 @@ const cloud = {
 };
 
 elements.todayTitle.textContent = `${today.getMonth() + 1} 月 ${today.getDate()} 日 ${WEEKDAYS[today.getDay()]}`;
+elements.todayTitle.addEventListener("click", () => {
+  selectedHistoryDate = todayKey;
+  setView("history");
+  renderHistory();
+});
+elements.climbingCard.addEventListener("click", () => {
+  setView("climbing");
+  renderClimbingPanel();
+});
+elements.climbingCard.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    setView("climbing");
+    renderClimbingPanel();
+  }
+});
 
 document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
@@ -183,6 +203,8 @@ function render() {
   renderBadges();
   renderScheduleEditor();
   renderCloudPanel();
+  renderHistory();
+  renderClimbingPanel();
   saveState();
 }
 
@@ -503,17 +525,34 @@ function statusButton(taskId, status, label, active, kind) {
 }
 
 function setTaskStatus(taskId, status) {
+  setTaskStatusForDate(todayKey, taskId, status, { respectSettlementLock: true });
+}
+
+function setTaskStatusForDate(dateKey, taskId, status, options = {}) {
   if (isTodaySettled()) {
-    toast("今天已结算，如需修改请先重置体验数据或后续使用撤销结算。");
-    return;
+    if (dateKey === todayKey && options.respectSettlementLock) {
+      toast("今天已结算，请先在晚间结算页撤销结算。");
+      return;
+    }
   }
-  const task = taskById(taskId);
-  const record = recordFor(todayKey, taskId);
+  const record = recordFor(dateKey, taskId);
   if (record.status === status) {
     record.status = "pending";
   } else {
     record.status = status;
+    if (status === "completed" || status === "excellent") record.makeup = false;
   }
+  render();
+}
+
+function toggleMakeup(dateKey, taskId) {
+  const record = recordFor(dateKey, taskId);
+  if (isDone(record)) {
+    toast("已完成的任务不需要补做。");
+    return;
+  }
+  record.makeup = !record.makeup;
+  toast(record.makeup ? "已标记补做，计入攀岩资格但不加积分。" : "已取消补做标记。");
   render();
 }
 
@@ -565,6 +604,7 @@ function renderSettlement() {
           <span><input id="leaveToggle" type="checkbox" ${record.leave ? "checked" : ""} /> 标记为请假/特殊日</span>
         </label>
         <button id="settleButton" class="primary-button" type="button" ${settled ? "disabled" : ""}>${settled ? "今日已结算" : "确认结算"}</button>
+        ${settled ? `<button id="undoSettleButton" class="ghost-button danger full-width" type="button">撤销今日结算并修改</button>` : ""}
       </div>
     </div>
   `;
@@ -573,6 +613,7 @@ function renderSettlement() {
     render();
   });
   document.querySelector("#settleButton")?.addEventListener("click", settleToday);
+  document.querySelector("#undoSettleButton")?.addEventListener("click", undoTodaySettlement);
   elements.settlementPanel.querySelectorAll("[data-settle-status]").forEach((button) => {
     button.addEventListener("click", () => setTaskStatus(button.dataset.task, button.dataset.settleStatus));
   });
@@ -622,6 +663,9 @@ function settlementButtons(task, record) {
 function settleToday() {
   if (isTodaySettled()) return;
   const calc = calculateToday({ preview: false });
+  const pointsBefore = state.points;
+  const streakBefore = state.streak;
+  const missStreakBefore = state.missStreak;
   state.points = Math.max(0, state.points + calc.total);
 
   if (!state.records[todayKey].leave) {
@@ -643,11 +687,27 @@ function settleToday() {
     leave: state.records[todayKey].leave,
     box: calc.boxResult,
     settledAt: new Date().toISOString(),
+    pointsBefore,
+    streakBefore,
+    missStreakBefore,
     streakAfter: state.streak,
     missStreakAfter: state.missStreak,
   };
   updateBadges();
   toast(`今日结算完成，${calc.total >= 0 ? "+" : ""}${calc.total} 分`);
+  render();
+}
+
+function undoTodaySettlement() {
+  const settlement = state.settlements[todayKey];
+  if (!settlement) return;
+  state.points = Number.isFinite(settlement.pointsBefore)
+    ? settlement.pointsBefore
+    : Math.max(0, state.points - Number(settlement.points || 0));
+  if (Number.isFinite(settlement.streakBefore)) state.streak = settlement.streakBefore;
+  if (Number.isFinite(settlement.missStreakBefore)) state.missStreak = settlement.missStreakBefore;
+  delete state.settlements[todayKey];
+  toast("已撤销今日结算，可以修改后重新结算。");
   render();
 }
 
@@ -716,6 +776,164 @@ function calculateToday() {
     missPenalty,
     total,
   };
+}
+
+function renderHistory() {
+  if (!elements.historyPanel) return;
+  const monthDate = parseDateKey(selectedHistoryDate);
+  const selectedRecord = state.records[selectedHistoryDate];
+  const selectedSettlement = state.settlements[selectedHistoryDate];
+  elements.historyPanel.innerHTML = `
+    <div class="calendar-panel">
+      <div class="calendar-header">
+        <button class="ghost-button" data-history-month="-1" type="button">上个月</button>
+        <strong>${monthDate.getFullYear()} 年 ${monthDate.getMonth() + 1} 月</strong>
+        <button class="ghost-button" data-history-month="1" type="button">下个月</button>
+      </div>
+      <div class="calendar-grid">
+        ${WEEKDAYS.map((day) => `<span class="calendar-weekday">${day}</span>`).join("")}
+        ${renderCalendarDays(monthDate)}
+      </div>
+    </div>
+    <div class="history-detail">
+      <div class="calc-panel">
+        <div class="calc-line"><span>日期</span><strong>${selectedHistoryDate} ${WEEKDAYS[parseDateKey(selectedHistoryDate).getDay()]}</strong></div>
+        <div class="calc-line"><span>结算</span><strong>${selectedSettlement ? `${selectedSettlement.points >= 0 ? "+" : ""}${selectedSettlement.points} 分` : "未结算"}</strong></div>
+        <div class="calc-line"><span>达标</span><strong>${selectedRecord?.leave ? "请假/特殊日" : selectedSettlement ? selectedSettlement.qualified ? "达标" : "未达标" : "未结算"}</strong></div>
+      </div>
+      <div class="list-panel history-list">
+        ${tasksForDate(selectedHistoryDate).length ? tasksForDate(selectedHistoryDate).map((task) => renderHistoryTask(selectedHistoryDate, task)).join("") : `<p class="muted">这一天没有安排任务。</p>`}
+      </div>
+    </div>
+  `;
+  elements.historyPanel.querySelectorAll("[data-history-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedHistoryDate = button.dataset.historyDate;
+      renderHistory();
+    });
+  });
+  elements.historyPanel.querySelectorAll("[data-history-month]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const next = parseDateKey(selectedHistoryDate);
+      next.setMonth(next.getMonth() + Number(button.dataset.historyMonth));
+      selectedHistoryDate = toDateKey(next);
+      renderHistory();
+    });
+  });
+}
+
+function renderCalendarDays(monthDate) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const first = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const blanks = Array.from({ length: first.getDay() }, () => `<span></span>`).join("");
+  const days = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const dateKey = toDateKey(new Date(year, month, day));
+    const settlement = state.settlements[dateKey];
+    const record = state.records[dateKey];
+    const className = [
+      "calendar-day",
+      dateKey === selectedHistoryDate ? "selected" : "",
+      dateKey === todayKey ? "today" : "",
+      settlement?.qualified ? "qualified" : "",
+      settlement && !settlement.qualified ? "missed" : "",
+      record?.leave ? "leave" : "",
+    ].filter(Boolean).join(" ");
+    return `<button class="${className}" data-history-date="${dateKey}" type="button"><strong>${day}</strong><span>${calendarDayMark(dateKey)}</span></button>`;
+  }).join("");
+  return blanks + days;
+}
+
+function calendarDayMark(dateKey) {
+  const settlement = state.settlements[dateKey];
+  if (state.records[dateKey]?.leave) return "假";
+  if (!settlement) return "";
+  if (settlement.qualified) return "达";
+  return "缺";
+}
+
+function renderHistoryTask(dateKey, task) {
+  const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
+  const detail = taskDetailText(task, record);
+  const makeupText = record.makeup ? " · 已补做" : "";
+  return `
+    <div class="list-item">
+      <div>
+        <strong>${escapeHtml(displayTaskName(task, record))}</strong>
+        <p class="muted" style="margin:6px 0 0">${statusText(record.status, task.type)}${makeupText}${detail ? ` · ${detail}` : ""}</p>
+      </div>
+      <span class="point-pill">${taskTypeText(task.type)}</span>
+    </div>
+  `;
+}
+
+function renderClimbingPanel() {
+  if (!elements.climbingPanel) return;
+  const dates = currentWeekDates();
+  const climbing = calculateClimbingStatus();
+  elements.climbingPanel.innerHTML = `
+    <div class="calc-panel">
+      <div class="calc-line"><span>本周学习任务</span><strong>${climbing.done} / ${climbing.total}</strong></div>
+      <div class="calc-line"><span>攀岩课资格</span><strong>${climbing.qualified ? "已获得" : `还差 ${climbing.remaining} 项`}</strong></div>
+    </div>
+    <div class="climbing-week">
+      ${dates.map(renderClimbingDay).join("")}
+    </div>
+  `;
+  elements.climbingPanel.querySelectorAll("[data-climb-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setTaskStatusForDate(button.dataset.date, button.dataset.task, button.dataset.climbStatus);
+      toast("状态已保存。已结算日期的修改不会重算积分。");
+    });
+  });
+  elements.climbingPanel.querySelectorAll("[data-makeup]").forEach((button) => {
+    button.addEventListener("click", () => toggleMakeup(button.dataset.date, button.dataset.task));
+  });
+}
+
+function renderClimbingDay(dateKey) {
+  const date = parseDateKey(dateKey);
+  const studyTasks = TASKS.filter((task) => task.type === "study" && isScheduled(task, date.getDay()));
+  if (!studyTasks.length) return "";
+  return `
+    <section class="climbing-day">
+      <h3>${date.getMonth() + 1} 月 ${date.getDate()} 日 ${WEEKDAYS[date.getDay()]}</h3>
+      ${studyTasks.map((task) => renderClimbingTask(dateKey, task)).join("")}
+    </section>
+  `;
+}
+
+function renderClimbingTask(dateKey, task) {
+  const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
+  const done = isDone(record);
+  const label = done ? statusText(record.status, task.type) : record.makeup ? "已补做" : "未完成";
+  return `
+    <div class="list-item compact-item ${done || record.makeup ? "is-ok" : "is-missing"}">
+      <div>
+        <strong>${escapeHtml(task.name)}</strong>
+        <p class="muted" style="margin:6px 0 0">${label}${taskDetailText(task, record) ? ` · ${taskDetailText(task, record)}` : ""}</p>
+        <div class="weekday-row">
+          <button class="ghost-button" data-date="${dateKey}" data-task="${task.id}" data-climb-status="completed" type="button">${record.status === "completed" ? "取消完成" : "完成"}</button>
+          <button class="ghost-button" data-date="${dateKey}" data-task="${task.id}" data-climb-status="excellent" type="button">${record.status === "excellent" ? "取消优秀" : "优秀"}</button>
+          <button class="ghost-button" data-date="${dateKey}" data-task="${task.id}" data-makeup="true" type="button">${record.makeup ? "取消补做" : "标记补做"}</button>
+        </div>
+      </div>
+      <span class="point-pill">${done || record.makeup ? "达成" : "缺"}</span>
+    </div>
+  `;
+}
+
+function taskDetailText(task, record) {
+  return [
+    record.duration ? `${record.duration} 分钟` : "",
+    record.title ? `《${escapeHtml(record.title)}》` : "",
+    record.progress ? `${record.progress}%` : "",
+    record.level ? `对手 ${escapeHtml(record.level)}` : "",
+    task.id === "go-game" ? (record.won ? "获胜" : "未获胜") : "",
+    record.note ? `备注：${escapeHtml(record.note)}` : "",
+  ].filter(Boolean).join(" · ");
 }
 
 function renderRewards() {
@@ -890,6 +1108,11 @@ function calculateClimbingStatus() {
 
 function todaysTasks() {
   const day = today.getDay();
+  return TASKS.filter((task) => isScheduled(task, day));
+}
+
+function tasksForDate(dateKey) {
+  const day = parseDateKey(dateKey).getDay();
   return TASKS.filter((task) => isScheduled(task, day));
 }
 

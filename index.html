@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>George 的个人成长助理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260512-1" />
+    <link rel="stylesheet" href="./styles.css?v=20260512-2" />
   </head>
   <body>
     <main class="app-shell">
       <header class="status-board" aria-label="今日状态">
         <div class="status-main">
           <p class="kicker">George 的个人成长助理</p>
-          <h1 id="todayTitle">今日打卡</h1>
+          <button id="todayTitle" class="date-title" type="button">今日打卡</button>
           <p id="profileLine" class="profile-line">George · 成长任务新手</p>
         </div>
         <div class="status-metrics">
@@ -29,7 +29,7 @@
             <strong id="streakDays">0 天</strong>
             <p id="multiplierText">今日倍率 1.0 倍</p>
           </article>
-          <article class="metric-card wide">
+          <article id="climbingCard" class="metric-card wide clickable-card" tabindex="0" role="button">
             <span>攀岩课资格</span>
             <strong id="climbingStatus">0 / 0</strong>
             <p id="climbingHint">本周学习任务统计中</p>
@@ -77,6 +77,26 @@
           </div>
         </div>
         <div id="settlementPanel" class="settlement-panel"></div>
+      </section>
+
+      <section id="historyView" class="view">
+        <div class="section-heading">
+          <div>
+            <h2>日历记录</h2>
+            <p>选择某一天，查看当天任务、结算结果和填写内容。</p>
+          </div>
+        </div>
+        <div id="historyPanel" class="history-layout"></div>
+      </section>
+
+      <section id="climbingView" class="view">
+        <div class="section-heading">
+          <div>
+            <h2>攀岩课资格</h2>
+            <p>查看本周学习任务完成情况。补做只恢复攀岩资格，不补积分。</p>
+          </div>
+        </div>
+        <div id="climbingPanel" class="list-panel"></div>
       </section>
 
       <section id="rewardsView" class="view">
@@ -130,7 +150,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="./firebase-config.js?v=20260512-1"></script>
-    <script src="./app.js?v=20260512-1"></script>
+    <script src="./firebase-config.js?v=20260512-2"></script>
+    <script src="./app.js?v=20260512-2"></script>
   </body>
 </html>

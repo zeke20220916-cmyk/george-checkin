@@ -72,6 +72,25 @@ h1 {
   letter-spacing: 0;
 }
 
+.date-title {
+  width: fit-content;
+  margin: 0 0 6px;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  font-size: clamp(30px, 4vw, 48px);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-align: left;
+}
+
+.date-title:hover,
+.date-title:focus-visible {
+  color: var(--blue);
+}
+
 h2 {
   margin-bottom: 8px;
   font-size: 23px;
@@ -157,6 +176,17 @@ h3 {
 .metric-card.primary span,
 .metric-card.primary p {
   color: rgba(255, 255, 255, 0.82);
+}
+
+.clickable-card {
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.clickable-card:hover,
+.clickable-card:focus-visible {
+  border-color: var(--blue);
+  transform: translateY(-1px);
+  outline: none;
 }
 
 .treasure-banner {
@@ -442,6 +472,125 @@ textarea {
   color: #a3342d;
 }
 
+.full-width {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.history-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.35fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.calendar-panel,
+.history-detail {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.calendar-weekday {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.calendar-day {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  font-weight: 900;
+}
+
+.calendar-day span {
+  min-height: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.calendar-day.today {
+  border-color: var(--blue);
+}
+
+.calendar-day.selected {
+  color: #fff;
+  border-color: var(--blue);
+  background: var(--blue);
+}
+
+.calendar-day.selected span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.calendar-day.qualified:not(.selected) {
+  background: #e9f8f0;
+}
+
+.calendar-day.missed:not(.selected) {
+  background: #fff0ed;
+}
+
+.calendar-day.leave:not(.selected) {
+  background: #fff7e8;
+}
+
+.history-list {
+  margin-top: 14px;
+  box-shadow: none;
+}
+
+.climbing-week {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.climbing-day {
+  display: grid;
+  gap: 8px;
+}
+
+.climbing-day h3 {
+  margin: 0;
+}
+
+.compact-item {
+  box-shadow: none;
+}
+
+.compact-item.is-ok {
+  border-color: rgba(29, 147, 100, 0.38);
+  background: #f2fbf6;
+}
+
+.compact-item.is-missing {
+  border-color: rgba(209, 77, 69, 0.32);
+  background: #fff8f7;
+}
+
 .reward-card,
 .badge-card {
   display: grid;
@@ -613,6 +762,7 @@ code {
   .reward-grid,
   .badge-grid,
   .settlement-grid,
+  .history-layout,
   .parent-layout {
     grid-template-columns: 1fr;
   }
