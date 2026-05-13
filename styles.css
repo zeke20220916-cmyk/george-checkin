@@ -866,6 +866,12 @@ textarea {
   line-height: 1.45;
 }
 
+.cloud-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 code {
   padding: 2px 5px;
   border-radius: 5px;

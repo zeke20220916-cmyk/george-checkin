@@ -92,6 +92,8 @@ const cloud = {
   configured: Boolean(window.GEORGE_FIREBASE_CONFIG),
   ready: false,
   applyingRemote: false,
+  conflict: false,
+  remoteActivity: 0,
   saveTimer: null,
   user: null,
   auth: null,
@@ -263,13 +265,22 @@ function subscribeCloudState() {
       }
       const remoteState = snapshot.data()?.state;
       if (!remoteState) return;
+      cloud.remoteActivity = stateActivityScore(remoteState);
       const remoteTime = Date.parse(remoteState.updatedAt || "");
       const localTime = Date.parse(state.updatedAt || "");
       if (Number.isNaN(remoteTime) || remoteTime <= localTime) {
         renderCloudPanel();
         return;
       }
+      const localActivity = stateActivityScore(state);
+      if (localActivity > cloud.remoteActivity) {
+        cloud.conflict = true;
+        renderCloudPanel();
+        toast("检测到本机数据比云端更多，请先确认上传本机数据。");
+        return;
+      }
       cloud.applyingRemote = true;
+      cloud.conflict = false;
       state = mergeState(remoteState);
       ensureToday();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -344,13 +355,92 @@ function renderCloudPanel() {
     return;
   }
   elements.cloudPanel.innerHTML = `
-    <div class="cloud-status online">
-      <strong>云同步已开启</strong>
+    <div class="cloud-status ${cloud.conflict ? "offline" : "online"}">
+      <strong>${cloud.conflict ? "发现本机数据未上传" : "云同步已开启"}</strong>
       <p>${escapeHtml(cloud.user.email || cloud.user.displayName || cloud.user.uid)} · ${cloud.ready ? "已连接" : "连接中"}</p>
+      ${cloud.conflict ? `<p>本机记录比云端更多。请在保存了完整数据的设备上点击“上传本机数据到云端”。</p>` : ""}
+      <div class="cloud-actions">
+        <button id="uploadLocalButton" class="primary-button" type="button">上传本机数据到云端</button>
+        <button id="downloadCloudButton" class="ghost-button" type="button">从云端同步到本机</button>
+      </div>
       <button id="googleSignOutButton" class="ghost-button" type="button">退出登录</button>
     </div>
   `;
+  document.querySelector("#uploadLocalButton")?.addEventListener("click", uploadLocalStateToCloud);
+  document.querySelector("#downloadCloudButton")?.addEventListener("click", downloadCloudStateToLocal);
   document.querySelector("#googleSignOutButton")?.addEventListener("click", () => cloud.auth.signOut());
+}
+
+function uploadLocalStateToCloud() {
+  if (!cloud.user || !cloud.db) {
+    toast("请先登录 Google。");
+    return;
+  }
+  state.updatedAt = new Date().toISOString();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  cloudStateRef()
+    .set(
+      {
+        state,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: cloud.user.uid,
+      },
+      { merge: true },
+    )
+    .then(() => {
+      cloud.conflict = false;
+      toast("本机数据已上传到云端。");
+      renderCloudPanel();
+    })
+    .catch((error) => {
+      console.error("Manual cloud upload failed", error);
+      toast("上传失败，请检查网络和登录账号。");
+    });
+}
+
+function downloadCloudStateToLocal() {
+  if (!cloud.user || !cloud.db) {
+    toast("请先登录 Google。");
+    return;
+  }
+  cloudStateRef()
+    .get()
+    .then((snapshot) => {
+      const remoteState = snapshot.data()?.state;
+      if (!snapshot.exists || !remoteState) {
+        toast("云端还没有数据。");
+        return;
+      }
+      cloud.applyingRemote = true;
+      state = mergeState(remoteState);
+      ensureToday();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      cloud.applyingRemote = false;
+      cloud.conflict = false;
+      toast("已从云端同步到本机。");
+      render();
+    })
+    .catch((error) => {
+      console.error("Manual cloud download failed", error);
+      toast("拉取失败，请检查网络和登录账号。");
+    });
+}
+
+function stateActivityScore(value) {
+  if (!value) return 0;
+  let score = Number(value.points || 0) ? 5 : 0;
+  score += Object.keys(value.settlements || {}).length * 10;
+  Object.values(value.records || {}).forEach((day) => {
+    if (day.leave) score += 2;
+    Object.values(day.tasks || {}).forEach((record) => {
+      if (!record) return;
+      if (record.status && record.status !== "pending") score += 2;
+      if (record.makeup) score += 1;
+      if (record.duration || record.note || record.title || record.progress || record.level || record.selfLevel || record.customName) score += 1;
+      if (Array.isArray(record.pieces) && record.pieces.some((piece) => piece.name || piece.progress || piece.note)) score += 1;
+    });
+  });
+  return score;
 }
 
 function signInWithGoogle() {
