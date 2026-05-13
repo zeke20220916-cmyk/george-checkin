@@ -80,6 +80,9 @@ const elements = {
   scheduleEditor: document.querySelector("#scheduleEditor"),
   cloudPanel: document.querySelector("#cloudPanel"),
   resetButton: document.querySelector("#resetButton"),
+  dataTransferText: document.querySelector("#dataTransferText"),
+  exportDataButton: document.querySelector("#exportDataButton"),
+  importDataButton: document.querySelector("#importDataButton"),
   historyPanel: document.querySelector("#historyPanel"),
   climbingPanel: document.querySelector("#climbingPanel"),
   climbingCard: document.querySelector("#climbingCard"),
@@ -132,6 +135,8 @@ document.querySelectorAll("[data-stats-range]").forEach((button) => {
   });
 });
 elements.resetButton.addEventListener("click", resetData);
+elements.exportDataButton.addEventListener("click", exportLocalData);
+elements.importDataButton.addEventListener("click", importLocalData);
 
 ensureToday();
 initCloudSync();
@@ -234,6 +239,14 @@ function initCloudSync() {
     firebase.initializeApp(window.GEORGE_FIREBASE_CONFIG);
     cloud.auth = firebase.auth();
     cloud.db = firebase.firestore();
+    cloud.auth
+      .getRedirectResult()
+      .catch((error) => {
+        if (!error?.code) return;
+        console.error("Google redirect sign-in failed", error);
+        toast(`Google 登录失败：${error.code}`);
+        renderCloudError(error.code, error.message || "");
+      });
     cloud.auth.onAuthStateChanged((user) => {
       cloud.user = user;
       if (cloud.unsubscribe) {
@@ -447,13 +460,74 @@ function signInWithGoogle() {
   if (!cloud.auth) return;
   const provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
+  if (shouldUseRedirectSignIn()) {
+    cloud.auth.signInWithRedirect(provider).catch((error) => {
+      console.error("Google redirect start failed", error);
+      const code = error?.code || "unknown";
+      const message = error?.message || "";
+      toast(`Google 登录失败：${code}`);
+      renderCloudError(code, message);
+    });
+    return;
+  }
   cloud.auth.signInWithPopup(provider).catch((error) => {
     console.error("Google sign-in failed", error);
     const code = error?.code || "unknown";
     const message = error?.message || "";
+    if (code === "auth/cancelled-popup-request" || code === "auth/popup-blocked" || code === "auth/popup-closed-by-user") {
+      cloud.auth.signInWithRedirect(provider);
+      return;
+    }
     toast(`Google 登录失败：${code}`);
     renderCloudError(code, message);
   });
+}
+
+function shouldUseRedirectSignIn() {
+  const userAgent = navigator.userAgent || "";
+  const isiOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const standalone = window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
+  return isiOS || standalone;
+}
+
+function exportLocalData() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    storageKey: STORAGE_KEY,
+    state,
+  };
+  elements.dataTransferText.value = JSON.stringify(payload, null, 2);
+  elements.dataTransferText.focus();
+  elements.dataTransferText.select();
+  navigator.clipboard?.writeText(elements.dataTransferText.value).then(
+    () => toast("本机数据已导出并复制。"),
+    () => toast("本机数据已导出，请手动复制文本框内容。"),
+  );
+}
+
+function importLocalData() {
+  const raw = elements.dataTransferText.value.trim();
+  if (!raw) {
+    toast("请先粘贴导出的数据。");
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    const importedState = parsed.state || parsed;
+    if (!importedState || typeof importedState !== "object" || !importedState.records) {
+      toast("导入内容不是有效的成长助理数据。");
+      return;
+    }
+    state = mergeState(importedState);
+    state.updatedAt = new Date().toISOString();
+    ensureToday();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    toast("数据已导入本机。需要同步到其他设备时，请再点击上传本机数据到云端。");
+    render();
+  } catch (error) {
+    console.error("Import failed", error);
+    toast("导入失败，请检查复制内容是否完整。");
+  }
 }
 
 function renderCloudError(code, message) {

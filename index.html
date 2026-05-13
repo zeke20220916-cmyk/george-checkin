@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>George 的个人成长助理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260513-1" />
+    <link rel="stylesheet" href="./styles.css?v=20260513-2" />
   </head>
   <body>
     <main class="app-shell">
@@ -157,6 +157,17 @@
               <p><strong>云端同步：</strong>配置 Firebase 后，数据会同步到 Cloud Firestore。</p>
               <p><strong>多终端访问：</strong>部署到 GitHub Pages 后，不同设备登录同一账号即可访问同一份数据。</p>
             </div>
+            <div class="data-tools">
+              <h3>数据备份和迁移</h3>
+              <div class="tool-actions">
+                <button id="exportDataButton" class="ghost-button" type="button">导出本机数据</button>
+                <button id="importDataButton" class="primary-button" type="button">导入数据到本机</button>
+              </div>
+              <label>
+                导出/导入内容
+                <textarea id="dataTransferText" placeholder="点击导出后复制这里的内容；或把备份内容粘贴到这里再导入。"></textarea>
+              </label>
+            </div>
           </section>
         </div>
       </section>
@@ -166,7 +177,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="./firebase-config.js?v=20260513-1"></script>
-    <script src="./app.js?v=20260513-1"></script>
+    <script src="./firebase-config.js?v=20260513-2"></script>
+    <script src="./app.js?v=20260513-2"></script>
   </body>
 </html>

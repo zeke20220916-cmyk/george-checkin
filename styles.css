@@ -872,6 +872,26 @@ textarea {
   gap: 8px;
 }
 
+.data-tools {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.data-tools textarea {
+  min-height: 150px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.tool-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 code {
   padding: 2px 5px;
   border-radius: 5px;
@@ -953,6 +973,8 @@ code {
   .progress-grid,
   .field-row,
   .piece-item,
+  .cloud-actions,
+  .tool-actions,
   .action-row,
   .segmented,
   .segmented.three {
