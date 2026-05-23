@@ -916,73 +916,107 @@ function settlementButtons(task, record) {
 }
 
 function settleToday() {
-  if (isTodaySettled()) return;
-  const calc = calculateToday({ preview: false });
-  const pointsBefore = state.points;
-  const streakBefore = state.streak;
-  const missStreakBefore = state.missStreak;
-  state.points = Math.max(0, state.points + calc.total);
-
-  if (!state.records[todayKey].leave) {
-    if (calc.qualified) {
-      if (state.flags.hadMissStreak && state.streak + 1 >= 3) state.flags.comeback = true;
-      state.streak += 1;
-      state.missStreak = 0;
-    } else {
-      state.streak = 0;
-      state.missStreak += 1;
-      if (state.missStreak >= 2) state.flags.hadMissStreak = true;
-    }
-  }
-
-  state.settlements[todayKey] = {
-    date: todayKey,
-    points: calc.total,
-    qualified: calc.qualified,
-    leave: state.records[todayKey].leave,
-    box: calc.boxResult,
-    settledAt: new Date().toISOString(),
-    pointsBefore,
-    streakBefore,
-    missStreakBefore,
-    streakAfter: state.streak,
-    missStreakAfter: state.missStreak,
-  };
-  updateBadges();
-  toast(`今日结算完成，${calc.total >= 0 ? "+" : ""}${calc.total} 分`);
-  render();
+  settleDate(todayKey);
 }
 
 function undoTodaySettlement() {
-  const settlement = state.settlements[todayKey];
-  if (!settlement) return;
-  state.points = Number.isFinite(settlement.pointsBefore)
-    ? settlement.pointsBefore
-    : Math.max(0, state.points - Number(settlement.points || 0));
-  if (Number.isFinite(settlement.streakBefore)) state.streak = settlement.streakBefore;
-  if (Number.isFinite(settlement.missStreakBefore)) state.missStreak = settlement.missStreakBefore;
-  delete state.settlements[todayKey];
-  toast("已撤销今日结算，可以修改后重新结算。");
+  undoSettlementForDate(todayKey);
+}
+
+function settleDate(dateKey) {
+  if (state.settlements[dateKey]) return;
+  ensureTreasureMonth(dateKey.slice(0, 7));
+  const calc = calculateForDate(dateKey);
+  state.settlements[dateKey] = {
+    date: dateKey,
+    points: calc.total,
+    qualified: calc.qualified,
+    leave: Boolean(state.records[dateKey]?.leave),
+    box: calc.boxResult,
+    settledAt: new Date().toISOString(),
+    pointsBefore: state.points,
+    streakBefore: state.streak,
+    missStreakBefore: state.missStreak,
+  };
+  recalculateSettledProgress();
+  updateBadges();
+  toast(`${dateKey === todayKey ? "今日" : dateKey} 结算完成，${calc.total >= 0 ? "+" : ""}${calc.total} 分`);
   render();
 }
 
+function undoSettlementForDate(dateKey) {
+  const settlement = state.settlements[dateKey];
+  if (!settlement) return;
+  delete state.settlements[dateKey];
+  recalculateSettledProgress();
+  updateBadges();
+  toast(`${dateKey === todayKey ? "今日" : dateKey} 结算已撤销，可以修改后重新结算。`);
+  render();
+}
+
+function recalculateSettledProgress() {
+  let points = 0;
+  let streak = 0;
+  let missStreak = 0;
+  let hadMissStreak = false;
+  let comeback = false;
+  Object.keys(state.settlements).sort().forEach((dateKey) => {
+    const settlement = state.settlements[dateKey];
+    const calc = calculateForDate(dateKey);
+    settlement.points = calc.total;
+    settlement.qualified = calc.qualified;
+    settlement.leave = Boolean(state.records[dateKey]?.leave);
+    settlement.box = calc.boxResult;
+    settlement.pointsBefore = points;
+    settlement.streakBefore = streak;
+    settlement.missStreakBefore = missStreak;
+    points = Math.max(0, points + Number(settlement.points || 0));
+    if (!settlement.leave) {
+      if (settlement.qualified) {
+        if (hadMissStreak && streak + 1 >= 3) comeback = true;
+        streak += 1;
+        missStreak = 0;
+      } else {
+        streak = 0;
+        missStreak += 1;
+        if (missStreak >= 2) hadMissStreak = true;
+      }
+    }
+    settlement.streakAfter = streak;
+    settlement.missStreakAfter = missStreak;
+  });
+  const approvedRedemptionCost = state.redemptions
+    .filter((item) => item.status === "approved")
+    .reduce((sum, item) => sum + Number(item.cost || 0), 0);
+  state.points = Math.max(0, points - approvedRedemptionCost);
+  state.streak = streak;
+  state.missStreak = missStreak;
+  state.flags.hadMissStreak = hadMissStreak;
+  state.flags.comeback = comeback;
+}
+
 function calculateToday() {
-  const record = state.records[todayKey];
-  const tasks = todaysTasks();
+  return calculateForDate(todayKey);
+}
+
+function calculateForDate(dateKey) {
+  const record = state.records[dateKey] || { tasks: {}, leave: false };
+  const tasks = tasksForDate(dateKey);
   const studyTasks = tasks.filter((task) => task.type === "study");
   const habitTasks = tasks.filter((task) => task.type === "habit");
-  const studyDone = studyTasks.filter((task) => isDone(recordFor(todayKey, task.id))).length;
-  const habitDone = habitTasks.filter((task) => isDone(recordFor(todayKey, task.id))).length;
+  const studyDone = studyTasks.filter((task) => isDone(record.tasks?.[task.id] || initialTaskRecord(task))).length;
+  const habitDone = habitTasks.filter((task) => isDone(record.tasks?.[task.id] || initialTaskRecord(task))).length;
   const habitPercent = habitTasks.length ? Math.round((habitDone / habitTasks.length) * 100) : 100;
   const qualified = studyDone === studyTasks.length && habitPercent >= 80;
-  const multiplier = getMultiplier(state.streak);
+  const previous = previousProgressBefore(dateKey);
+  const multiplier = getMultiplier(previous.streak);
 
   let coreBase = 0;
   let classPoints = 0;
   let bonusPoints = 0;
   let qualityBonus = 0;
   tasks.forEach((task) => {
-    const taskRecord = recordFor(todayKey, task.id);
+    const taskRecord = record.tasks?.[task.id] || initialTaskRecord(task);
     if (!isDone(taskRecord)) return;
     if (task.type === "study" || task.type === "habit") coreBase += Number(task.points);
     if (task.type === "class") classPoints += Number(task.points);
@@ -991,9 +1025,9 @@ function calculateToday() {
   });
 
   const coreWithMultiplier = Math.round(coreBase * multiplier);
-  const projectedMissStreak = record.leave || qualified ? 0 : state.missStreak + 1;
+  const projectedMissStreak = record.leave || qualified ? 0 : previous.missStreak + 1;
   const missPenalty = record.leave ? 0 : missPenaltyFor(projectedMissStreak);
-  const box = getTreasureBox(todayKey);
+  const box = getTreasureBox(dateKey);
   let boxPoints = 0;
   let boxLabel = box ? "有宝箱，结算后揭晓" : "无";
   let boxResult = null;
@@ -1033,11 +1067,21 @@ function calculateToday() {
   };
 }
 
+function previousProgressBefore(dateKey) {
+  const previousKey = Object.keys(state.settlements).filter((key) => key < dateKey).sort().pop();
+  const previous = previousKey ? state.settlements[previousKey] : null;
+  return {
+    streak: Number.isFinite(previous?.streakAfter) ? previous.streakAfter : 0,
+    missStreak: Number.isFinite(previous?.missStreakAfter) ? previous.missStreakAfter : 0,
+  };
+}
+
 function renderHistory() {
   if (!elements.historyPanel) return;
   const monthDate = parseDateKey(selectedHistoryDate);
   const selectedRecord = state.records[selectedHistoryDate];
   const selectedSettlement = state.settlements[selectedHistoryDate];
+  const canOperateSelectedDate = selectedHistoryDate <= todayKey;
   elements.historyPanel.innerHTML = `
     <div class="calendar-panel">
       <div class="calendar-header">
@@ -1055,9 +1099,19 @@ function renderHistory() {
         <div class="calc-line"><span>日期</span><strong>${selectedHistoryDate} ${WEEKDAYS[parseDateKey(selectedHistoryDate).getDay()]}</strong></div>
         <div class="calc-line"><span>结算</span><strong>${selectedSettlement ? `${selectedSettlement.points >= 0 ? "+" : ""}${selectedSettlement.points} 分` : "未结算"}</strong></div>
         <div class="calc-line"><span>达标</span><strong>${selectedRecord?.leave ? "请假/特殊日" : selectedSettlement ? selectedSettlement.qualified ? "达标" : "未达标" : "未结算"}</strong></div>
+        ${canOperateSelectedDate ? `
+          <label style="margin:14px 0 0">
+            <span><input id="historyLeaveToggle" type="checkbox" ${selectedRecord?.leave ? "checked" : ""} ${selectedSettlement ? "disabled" : ""} /> 标记为请假/特殊日</span>
+          </label>
+          <div class="history-actions" style="margin-top:14px">
+            ${selectedSettlement
+              ? `<button id="undoHistorySettleButton" class="ghost-button danger full-width" type="button">撤销这一天结算</button>`
+              : `<button id="settleHistoryButton" class="primary-button" type="button">补结算这一天</button>`}
+          </div>
+        ` : `<p class="muted" style="margin:14px 0 0">未来日期暂不能结算。</p>`}
       </div>
       <div class="list-panel history-list">
-        ${tasksForDate(selectedHistoryDate).length ? tasksForDate(selectedHistoryDate).map((task) => renderHistoryTask(selectedHistoryDate, task)).join("") : `<p class="muted">这一天没有安排任务。</p>`}
+        ${tasksForDate(selectedHistoryDate).length ? tasksForDate(selectedHistoryDate).map((task) => renderHistoryTask(selectedHistoryDate, task, Boolean(selectedSettlement))).join("") : `<p class="muted">这一天没有安排任务。</p>`}
       </div>
     </div>
   `;
@@ -1073,6 +1127,19 @@ function renderHistory() {
       next.setMonth(next.getMonth() + Number(button.dataset.historyMonth));
       selectedHistoryDate = toDateKey(next);
       renderHistory();
+    });
+  });
+  elements.historyPanel.querySelector("#historyLeaveToggle")?.addEventListener("change", (event) => {
+    if (!state.records[selectedHistoryDate]) state.records[selectedHistoryDate] = { tasks: {}, leave: false };
+    state.records[selectedHistoryDate].leave = event.target.checked;
+    render();
+  });
+  elements.historyPanel.querySelector("#settleHistoryButton")?.addEventListener("click", () => settleDate(selectedHistoryDate));
+  elements.historyPanel.querySelector("#undoHistorySettleButton")?.addEventListener("click", () => undoSettlementForDate(selectedHistoryDate));
+  elements.historyPanel.querySelectorAll("[data-history-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setTaskStatusForDate(selectedHistoryDate, button.dataset.task, button.dataset.historyStatus);
+      toast("状态已保存，可以补结算这一天。");
     });
   });
 }
@@ -1109,7 +1176,7 @@ function calendarDayMark(dateKey) {
   return "缺";
 }
 
-function renderHistoryTask(dateKey, task) {
+function renderHistoryTask(dateKey, task, locked = false) {
   const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
   const detail = taskDetailText(task, record);
   const makeupText = record.makeup ? " · 已补做" : "";
@@ -1118,10 +1185,31 @@ function renderHistoryTask(dateKey, task) {
       <div>
         <strong>${escapeHtml(displayTaskName(task, record))}</strong>
         <p class="muted" style="margin:6px 0 0">${statusText(record.status, task.type)}${makeupText}${detail ? ` · ${detail}` : ""}</p>
+        ${locked ? "" : `
+          <div class="weekday-row">
+            ${historyStatusButtons(task, record)}
+          </div>
+        `}
       </div>
       <span class="point-pill">${taskTypeText(task.type)}</span>
     </div>
   `;
+}
+
+function historyStatusButtons(task, record) {
+  if (task.type === "study") {
+    return `
+      <button class="ghost-button" data-task="${task.id}" data-history-status="completed" type="button">${record.status === "completed" ? "取消完成" : "完成"}</button>
+      <button class="ghost-button" data-task="${task.id}" data-history-status="excellent" type="button">${record.status === "excellent" ? "取消优秀" : "优秀"}</button>
+    `;
+  }
+  if (task.type === "class") {
+    return `
+      <button class="ghost-button" data-task="${task.id}" data-history-status="completed" type="button">${record.status === "completed" ? "取消参加" : "参加"}</button>
+      <button class="ghost-button" data-task="${task.id}" data-history-status="excellent" type="button">${record.status === "excellent" ? "取消表扬" : "表扬"}</button>
+    `;
+  }
+  return `<button class="ghost-button" data-task="${task.id}" data-history-status="completed" type="button">${record.status === "completed" ? "取消完成" : "完成"}</button>`;
 }
 
 function renderClimbingPanel() {
