@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>George 的个人成长助理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260513-2" />
+    <title>George 的成长计划 2.0</title>
+    <link rel="stylesheet" href="./styles.css?v=20260903-1" />
   </head>
   <body>
     <main class="app-shell">
       <header class="status-board" aria-label="今日状态">
         <div class="status-main">
-          <p class="kicker">George 的个人成长助理</p>
+          <p class="kicker">George 的成长计划 2.0</p>
           <button id="todayTitle" class="date-title" type="button">今日打卡</button>
           <p id="profileLine" class="profile-line">George · 成长任务新手</p>
         </div>
@@ -42,16 +42,54 @@
       </section>
 
       <nav class="tabs" aria-label="主导航">
-        <button class="tab-button active" data-view="checkin" type="button">今日打卡</button>
-        <button class="tab-button" data-view="settlement" type="button">晚间结算</button>
-        <button class="tab-button" data-view="history" type="button">日历记录</button>
-        <button class="tab-button" data-view="stats" type="button">统计</button>
-        <button class="tab-button" data-view="rewards" type="button">奖励商店</button>
-        <button class="tab-button" data-view="badges" type="button">勋章称号</button>
-        <button class="tab-button" data-view="parent" type="button">家长设置</button>
+        <button class="tab-button active" data-view="overview" type="button">总体展示</button>
+        <button class="tab-button" data-view="daily" type="button">每日任务</button>
+        <button class="tab-button" data-view="makeup" type="button">补课课表</button>
+        <button class="tab-button" data-view="checkin" type="button">打卡</button>
+        <button class="tab-button" data-view="stats" type="button">数据分析</button>
+        <button class="tab-button" data-view="settings" type="button">设置</button>
       </nav>
 
-      <section id="checkinView" class="view active">
+      <section id="overviewView" class="view active">
+        <div class="section-heading">
+          <div>
+            <h2>总体展示</h2>
+            <p>汇总今日、本周和长期的完成情况。</p>
+          </div>
+        </div>
+        <div id="overviewPanel" class="overview-panel"></div>
+      </section>
+
+      <section id="dailyView" class="view">
+        <div class="section-heading">
+          <div>
+            <h2>每日任务</h2>
+            <p>学习任务按时间轴展示；日常与加分任务以每日清单呈现。</p>
+          </div>
+        </div>
+        <div id="weekGanttPanel" class="week-gantt-panel"></div>
+      </section>
+
+      <section id="makeupView" class="view">
+        <div class="section-heading">
+          <div>
+            <h2>补课课程表</h2>
+            <p>按周查看补课和课外课程安排。</p>
+          </div>
+        </div>
+        <div id="makeupPanel" class="makeup-panel"></div>
+      </section>
+
+      <section id="checkinView" class="view">
+        <div class="section-heading">
+          <div>
+            <h2>打卡</h2>
+            <p>选择日期后，勾选每日任务和补课课程是否完成。</p>
+          </div>
+          <label class="date-picker">选择日期
+            <input id="checkinDateInput" type="date" />
+          </label>
+        </div>
         <div class="progress-grid">
           <article class="progress-panel">
             <div>
@@ -69,43 +107,20 @@
           </article>
         </div>
         <div id="taskSections" class="task-sections"></div>
-      </section>
-
-      <section id="settlementView" class="view">
-        <div class="section-heading">
+        <div class="section-heading compact">
           <div>
-            <h2>晚间结算</h2>
-            <p>家长检查 George 的填写结果，有问题可以直接修改，然后确认结算。</p>
+            <h2>当日结算</h2>
+            <p>确认后会写入积分和连续达标记录。</p>
           </div>
         </div>
         <div id="settlementPanel" class="settlement-panel"></div>
       </section>
 
-      <section id="historyView" class="view">
-        <div class="section-heading">
-          <div>
-            <h2>日历记录</h2>
-            <p>选择某一天，查看当天任务、结算结果和填写内容。</p>
-          </div>
-        </div>
-        <div id="historyPanel" class="history-layout"></div>
-      </section>
-
-      <section id="climbingView" class="view">
-        <div class="section-heading">
-          <div>
-            <h2>攀岩课资格</h2>
-            <p>查看本周学习任务完成情况。补做只恢复攀岩资格，不补积分。</p>
-          </div>
-        </div>
-        <div id="climbingPanel" class="list-panel"></div>
-      </section>
-
       <section id="statsView" class="view">
         <div class="section-heading">
           <div>
-            <h2>统计</h2>
-            <p>查看完成率、需要关注的任务，以及阅读、钢琴、围棋成果。</p>
+            <h2>详细数据分析</h2>
+            <p>查看每周学习时间、每项任务完成比例，以及阅读、钢琴、围棋成果。</p>
           </div>
           <div class="range-tabs" aria-label="统计范围">
             <button class="range-button active" data-stats-range="week" type="button">本周</button>
@@ -116,7 +131,7 @@
         <div id="statsPanel" class="stats-panel"></div>
       </section>
 
-      <section id="rewardsView" class="view">
+      <section id="rewardsView" class="view legacy-view">
         <div class="section-heading">
           <div>
             <h2>奖励商店</h2>
@@ -130,7 +145,7 @@
         <div id="redemptionList" class="list-panel"></div>
       </section>
 
-      <section id="badgesView" class="view">
+      <section id="badgesView" class="view legacy-view">
         <div class="section-heading">
           <div>
             <h2>勋章称号</h2>
@@ -140,14 +155,14 @@
         <div id="badgeGrid" class="badge-grid"></div>
       </section>
 
-      <section id="parentView" class="view">
+      <section id="settingsView" class="view">
         <div class="parent-layout">
           <section class="settings-panel">
             <div class="settings-header">
-              <h2>任务计划</h2>
+              <h2>每日任务和补课设置</h2>
               <button id="resetButton" class="ghost-button danger" type="button">重置体验数据</button>
             </div>
-            <p class="muted">勾选每个任务一周中出现的日期。学习任务和课外班可按实际课表调整。</p>
+            <p class="muted">勾选每个任务一周中出现的日期。每日任务和补课课程可按实际课表调整。</p>
             <div id="scheduleEditor" class="schedule-editor"></div>
           </section>
           <section class="settings-panel">
@@ -179,6 +194,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="./firebase-config.js?v=20260523-1"></script>
-    <script src="./app.js?v=20260523-1"></script>
+    <script src="./app.js?v=20260903-1"></script>
   </body>
 </html>

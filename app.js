@@ -3,6 +3,7 @@ const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "�
 const today = new Date();
 const todayKey = toDateKey(today);
 let selectedHistoryDate = todayKey;
+let selectedCheckinDate = todayKey;
 let statsRange = "week";
 
 const TASKS = [
@@ -72,6 +73,7 @@ const elements = {
   treasureBanner: document.querySelector("#treasureBanner"),
   studyProgress: document.querySelector("#studyProgress"),
   habitProgress: document.querySelector("#habitProgress"),
+  weekGanttPanel: document.querySelector("#weekGanttPanel"),
   taskSections: document.querySelector("#taskSections"),
   settlementPanel: document.querySelector("#settlementPanel"),
   rewardGrid: document.querySelector("#rewardGrid"),
@@ -83,11 +85,12 @@ const elements = {
   dataTransferText: document.querySelector("#dataTransferText"),
   exportDataButton: document.querySelector("#exportDataButton"),
   importDataButton: document.querySelector("#importDataButton"),
-  historyPanel: document.querySelector("#historyPanel"),
-  climbingPanel: document.querySelector("#climbingPanel"),
   climbingCard: document.querySelector("#climbingCard"),
   statsPanel: document.querySelector("#statsPanel"),
   toast: document.querySelector("#toast"),
+  overviewPanel: document.querySelector("#overviewPanel"),
+  makeupPanel: document.querySelector("#makeupPanel"),
+  checkinDateInput: document.querySelector("#checkinDateInput"),
 };
 
 let state = loadState();
@@ -106,19 +109,20 @@ const cloud = {
 
 elements.todayTitle.textContent = `${today.getMonth() + 1} 月 ${today.getDate()} 日 ${WEEKDAYS[today.getDay()]}`;
 elements.todayTitle.addEventListener("click", () => {
-  selectedHistoryDate = todayKey;
-  setView("history");
-  renderHistory();
+  selectedCheckinDate = todayKey;
+  setView("checkin");
+  renderTasks();
+  renderSettlement();
 });
 elements.climbingCard.addEventListener("click", () => {
-  setView("climbing");
-  renderClimbingPanel();
+  setView("makeup");
+  renderMakeupSchedule();
 });
 elements.climbingCard.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
-    setView("climbing");
-    renderClimbingPanel();
+    setView("makeup");
+    renderMakeupSchedule();
   }
 });
 
@@ -137,6 +141,12 @@ document.querySelectorAll("[data-stats-range]").forEach((button) => {
 elements.resetButton.addEventListener("click", resetData);
 elements.exportDataButton.addEventListener("click", exportLocalData);
 elements.importDataButton.addEventListener("click", importLocalData);
+elements.checkinDateInput?.addEventListener("change", (event) => {
+  selectedCheckinDate = event.target.value || todayKey;
+  ensureDateRecord(selectedCheckinDate);
+  renderTasks();
+  renderSettlement();
+});
 
 ensureToday();
 initCloudSync();
@@ -144,8 +154,12 @@ render();
 
 function defaultState() {
   const schedules = {};
+  const scheduleTimes = {};
   TASKS.forEach((task) => {
     schedules[task.id] = [...task.weekdays];
+    if (task.type === "study" || task.type === "class") {
+      scheduleTimes[task.id] = { default: defaultTaskTime(task), byWeekday: {} };
+    }
   });
   return {
     points: 0,
@@ -154,6 +168,7 @@ function defaultState() {
     records: {},
     settlements: {},
     schedules,
+    scheduleTimes,
     redemptions: [],
     unlockedBadges: [],
     currentTitle: "",
@@ -174,6 +189,7 @@ function loadState() {
       ...base,
       ...parsed,
       schedules: { ...base.schedules, ...(parsed.schedules || {}) },
+      scheduleTimes: normalizeScheduleTimes(parsed.scheduleTimes),
       flags: { ...base.flags, ...(parsed.flags || {}) },
     };
   } catch {
@@ -189,12 +205,16 @@ function saveState() {
 }
 
 function ensureToday() {
-  if (!state.records[todayKey]) state.records[todayKey] = { tasks: {}, leave: false };
-  TASKS.forEach((task) => {
-    if (!state.records[todayKey].tasks[task.id]) state.records[todayKey].tasks[task.id] = initialTaskRecord(task);
-  });
+  ensureDateRecord(todayKey);
   ensureTreasureMonth(monthKey(today));
   saveState();
+}
+
+function ensureDateRecord(dateKey) {
+  if (!state.records[dateKey]) state.records[dateKey] = { tasks: {}, leave: false };
+  TASKS.forEach((task) => {
+    if (!state.records[dateKey].tasks[task.id]) state.records[dateKey].tasks[task.id] = initialTaskRecord(task);
+  });
 }
 
 function initialTaskRecord(task) {
@@ -217,14 +237,15 @@ function initialTaskRecord(task) {
 function render() {
   updateBadges();
   renderHeader();
+  renderOverview();
+  renderWeekGantt();
+  renderMakeupSchedule();
   renderTasks();
   renderSettlement();
-  renderRewards();
-  renderBadges();
+  if (elements.rewardGrid && elements.redemptionList) renderRewards();
+  if (elements.badgeGrid) renderBadges();
   renderScheduleEditor();
   renderCloudPanel();
-  renderHistory();
-  renderClimbingPanel();
   renderStats();
   saveState();
 }
@@ -341,6 +362,7 @@ function mergeState(remoteState) {
     ...base,
     ...remoteState,
     schedules: { ...base.schedules, ...(remoteState.schedules || {}) },
+    scheduleTimes: normalizeScheduleTimes(remoteState.scheduleTimes),
     flags: { ...base.flags, ...(remoteState.flags || {}) },
   };
 }
@@ -568,21 +590,104 @@ function renderHeader() {
   elements.habitProgress.textContent = `${habitPercent}%`;
 }
 
+function renderOverview() {
+  if (!elements.overviewPanel) return;
+  const todayCalc = calculateForDate(todayKey);
+  const weekStats = calculateStats("week");
+  const climbing = calculateClimbingStatus();
+  const weekDates = currentWeekDates();
+  const makeupTasks = weekDates.flatMap((dateKey) => tasksForDate(dateKey).filter((task) => task.type === "class"));
+  const completedMakeup = weekDates.reduce((sum, dateKey) => {
+    return sum + tasksForDate(dateKey).filter((task) => task.type === "class" && isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+  }, 0);
+  const focusItems = weekStats.lowCompletion.slice(0, 3);
+
+  elements.overviewPanel.innerHTML = `
+    <section class="overview-grid">
+      ${overviewCard("今日任务", `${todayCalc.studyDone}/${todayCalc.studyTotal}`, `习惯完成率 ${todayCalc.habitPercent}%`)}
+      ${overviewCard("本周学习时间", formatHours(weekStats.studyMinutes), `${weekStats.studyMinutes} 分钟`)}
+      ${overviewCard("补课完成", `${completedMakeup}/${makeupTasks.length}`, "按本周课程表统计")}
+      ${overviewCard("攀岩资格", climbing.qualified ? "已获得" : `差 ${climbing.remaining} 项`, `${climbing.done}/${climbing.total} 学习任务`)}
+    </section>
+    <section class="overview-split">
+      <article class="overview-panel-card">
+        <h3>本周节奏</h3>
+        <div class="week-strip">
+          ${weekDates.map((dateKey) => renderOverviewDay(dateKey)).join("")}
+        </div>
+      </article>
+      <article class="overview-panel-card">
+        <h3>优先关注</h3>
+        ${focusItems.length ? focusItems.map((item) => `
+          <div class="focus-line">
+            <strong>${escapeHtml(item.name)}</strong>
+            <span>${item.rate}% · ${item.done}/${item.total}</span>
+          </div>
+        `).join("") : `<p class="muted">本周暂无明显短板。</p>`}
+      </article>
+    </section>
+  `;
+  elements.overviewPanel.querySelectorAll("[data-overview-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedCheckinDate = button.dataset.overviewDate;
+      setView("checkin");
+      renderTasks();
+      renderSettlement();
+    });
+  });
+}
+
+function overviewCard(label, value, note) {
+  return `
+    <article class="overview-card">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      <p>${note}</p>
+    </article>
+  `;
+}
+
+function renderOverviewDay(dateKey) {
+  const date = parseDateKey(dateKey);
+  const tasks = tasksForDate(dateKey).filter((task) => task.type !== "bonus");
+  const done = tasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+  const rate = tasks.length ? Math.round((done / tasks.length) * 100) : 100;
+  return `
+    <button class="week-strip-day ${dateKey === todayKey ? "today" : ""}" data-overview-date="${dateKey}" type="button">
+      <span>${WEEKDAYS[date.getDay()]}</span>
+      <strong>${date.getMonth() + 1}/${date.getDate()}</strong>
+      <i><b style="height: ${rate}%"></b></i>
+      <em>${done}/${tasks.length}</em>
+    </button>
+  `;
+}
+
 function renderTasks() {
+  if (!elements.taskSections) return;
+  if (elements.checkinDateInput) elements.checkinDateInput.value = selectedCheckinDate;
+  ensureDateRecord(selectedCheckinDate);
+  const selectedDate = parseDateKey(selectedCheckinDate);
   const groups = [
     { type: "study", title: "学习任务" },
     { type: "habit", title: "生活习惯" },
-    { type: "class", title: "课外班" },
+    { type: "class", title: "补课课程" },
     { type: "bonus", title: "加分任务" },
   ];
-  const todayTasks = todaysTasks();
+  const dayTasks = tasksForDate(selectedCheckinDate);
+  const studyTasks = dayTasks.filter((task) => task.type === "study");
+  const habitTasks = dayTasks.filter((task) => task.type === "habit");
+  const studyDone = studyTasks.filter((task) => isDone(recordFor(selectedCheckinDate, task.id))).length;
+  const habitDone = habitTasks.filter((task) => isDone(recordFor(selectedCheckinDate, task.id))).length;
+  const habitPercent = habitTasks.length ? Math.round((habitDone / habitTasks.length) * 100) : 100;
+  elements.studyProgress.textContent = `${studyDone} / ${studyTasks.length}`;
+  elements.habitProgress.textContent = `${habitPercent}%`;
   elements.taskSections.innerHTML = groups
     .map((group) => {
-      const tasks = todayTasks.filter((task) => task.type === group.type);
+      const tasks = dayTasks.filter((task) => task.type === group.type);
       if (!tasks.length) return "";
       return `
         <section>
-          <h2>${group.title}</h2>
+          <h2>${group.title} · ${selectedDate.getMonth() + 1} 月 ${selectedDate.getDate()} 日 ${WEEKDAYS[selectedDate.getDay()]}</h2>
           <div class="task-grid">
             ${tasks.map(renderTaskCard).join("")}
           </div>
@@ -611,8 +716,322 @@ function renderTasks() {
   });
 }
 
+function renderWeekGantt() {
+  if (!elements.weekGanttPanel) return;
+  const weekDates = currentWeekDates();
+  const totals = weekDates.reduce((summary, dateKey) => {
+    const tasks = tasksForDate(dateKey).filter((task) => task.type !== "class");
+    const done = tasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+    summary.tasks += tasks.length;
+    summary.done += done;
+    summary.study += tasks.filter((task) => task.type === "study").length;
+    return summary;
+  }, { tasks: 0, done: 0, study: 0 });
+  const completion = totals.tasks ? Math.round((totals.done / totals.tasks) * 100) : 100;
+  const weekdayDates = weekDates.filter((dateKey) => !isWeekend(dateKey));
+  const weekendDates = weekDates.filter(isWeekend);
+
+  elements.weekGanttPanel.innerHTML = `
+    <div class="week-gantt-summary">
+      <article>
+        <span>本周进度</span>
+        <strong>${totals.done} / ${totals.tasks}</strong>
+      </article>
+      <article>
+        <span>完成率</span>
+        <strong>${completion}%</strong>
+      </article>
+      <article>
+        <span>学习任务</span>
+        <strong>${totals.study} 项</strong>
+      </article>
+    </div>
+    ${renderRoutineOverview()}
+    ${renderWeekGanttBoard("周一至周五", weekdayDates, { start: 14, end: 22, ticks: [14, 16, 18, 20, 22] })}
+    ${renderWeekGanttBoard("周末", weekendDates, { start: 8, end: 22, ticks: [8, 12, 16, 20, 22] })}
+    <div class="week-gantt-legend">
+      <span><i class="legend-dot study"></i>学习</span>
+      <span><i class="legend-dot habit"></i>固定例行</span>
+      <span><i class="legend-dot bonus"></i>可选加分</span>
+      <span><i class="legend-dot excellent"></i>优秀</span>
+    </div>
+  `;
+
+  elements.weekGanttPanel.querySelectorAll("[data-week-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedCheckinDate = button.dataset.weekDate;
+      setView("checkin");
+      renderTasks();
+      renderSettlement();
+    });
+  });
+}
+
+function renderRoutineOverview() {
+  const groups = [
+    { title: "回家后", taskIds: ["hand-wash", "fold-clothes", "slippers", "desk-bag"] },
+    { title: "睡前", taskIds: ["sleep-routine", "prepare-clothes"] },
+    { title: "可选加分", taskIds: ["diary", "mistake-book", "help-family", "extra-reading", "clean-meal", "make-bed", "other-bonus"] },
+  ];
+  return `
+    <section class="routine-overview">
+      <div><strong>固定例行</strong><span>每天按场景提示，具体完成情况在日期摘要和打卡页查看。</span></div>
+      <div class="routine-group-list">
+        ${groups.map((group) => `
+          <div class="routine-group"><strong>${group.title}</strong><span>${group.taskIds.map((id) => escapeHtml(taskById(id).name)).join(" · ")}</span></div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderWeekGanttBoard(title, dates, timeline) {
+  return `
+    <section class="week-schedule-section">
+      <h3>${title}</h3>
+      <div class="week-gantt-board">
+        <div class="week-gantt-head">
+          <span>日期</span>
+          <span class="timeline-scale" aria-label="学习时间刻度">
+            ${timeline.ticks.map((hour) => `<i style="left: ${((hour - timeline.start) / (timeline.end - timeline.start)) * 100}%">${String(hour).padStart(2, "0")}:00</i>`).join("")}
+          </span>
+          <span>进度</span>
+        </div>
+        ${dates.map((dateKey) => renderWeekGanttDay(dateKey, timeline)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderWeekGanttDay(dateKey, timeline) {
+  const date = parseDateKey(dateKey);
+  const tasks = tasksForDate(dateKey).filter((task) => task.type !== "class");
+  const studyTasks = tasks.filter((task) => task.type === "study");
+  const habitTasks = tasks.filter((task) => task.type === "habit");
+  const bonusTasks = tasks.filter((task) => task.type === "bonus");
+  const studyDone = studyTasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+  const habitDone = habitTasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+  const bonusDone = bonusTasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+  const done = tasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+  const completion = tasks.length ? Math.round((done / tasks.length) * 100) : 100;
+  const isToday = dateKey === todayKey;
+  const dayState = isToday ? "today" : dateKey > todayKey ? "future" : done < tasks.length ? "incomplete-day" : "completed-day";
+  const dayLabel = `${WEEKDAYS[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
+
+  return `
+    <section class="week-gantt-row ${dayState}">
+      <button class="week-day-button" data-week-date="${dateKey}" type="button">
+        <strong>${dayLabel}</strong>
+        <span>${isToday ? "今天" : ""}</span>
+        <span class="week-day-summary">学习 ${studyDone}/${studyTasks.length} · 例行 ${habitDone}/${habitTasks.length} · 加分 ${bonusDone}/${bonusTasks.length}</span>
+      </button>
+      <div class="study-timeline" aria-label="${escapeAttr(dayLabel)} 学习任务时间轴">
+        ${renderStudyTimeline(dateKey, studyTasks, timeline) || `<span class="week-empty">暂无学习任务</span>`}
+      </div>
+      <div class="week-progress">
+        <strong>${done}/${tasks.length}</strong>
+        <span class="week-progress-track"><i style="width: ${completion}%"></i></span>
+      </div>
+    </section>
+  `;
+}
+
+function renderStudyTimeline(dateKey, tasks, timeline) {
+  const tracks = [];
+  const guides = timeline.ticks.map((hour) => `<i class="timeline-guide" style="left: ${((hour - timeline.start) / (timeline.end - timeline.start)) * 100}%"></i>`).join("");
+  const items = tasks.map((task) => {
+    const slot = taskTimeSlot(task, dateKey, timeline);
+    let track = tracks.findIndex((end) => end <= slot.start);
+    if (track === -1) {
+      track = tracks.length;
+      tracks.push(slot.end);
+    } else {
+      tracks[track] = slot.end;
+    }
+    return renderWeekGanttTask(dateKey, task, slot, track, timeline);
+  }).join("");
+  return `${guides}${items}`;
+}
+
+function renderWeekGanttTask(dateKey, task, slot, track, timeline) {
+  const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
+  const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "done" : "";
+  const palette = taskPalette(task);
+  return `
+    <span class="week-task ${task.type} ${statusClass}" style="--start: ${slot.start / slot.hours}; --duration: ${(slot.end - slot.start) / slot.hours}; --track: ${track}; --task-today-bg: ${palette.today}; --task-future-bg: ${palette.future}; --task-border: ${palette.border}; --task-ink: ${palette.ink}" title="${escapeAttr(taskTypeText(task.type))} · ${escapeAttr(statusText(record.status, task.type))}">
+      ${escapeHtml(displayTaskName(task, record))}
+    </span>
+  `;
+}
+
+function taskPalette(task) {
+  return {
+    "school-homework": { today: "#dbeaff", future: "#edf5ff", border: "#6d9fdf", ink: "#174e99" },
+    olympiad: { today: "#e7dcfb", future: "#f3edff", border: "#9a78cc", ink: "#62428f" },
+    coding: { today: "#d7f0ed", future: "#e9f8f6", border: "#4da99e", ink: "#176c64" },
+    "english-homework": { today: "#fce3d0", future: "#fff1e7", border: "#d98245", ink: "#9a4c1c" },
+    "piano-practice": { today: "#f8dbe8", future: "#fcecf3", border: "#c66d99", ink: "#8c315e" },
+    "go-game": { today: "#d7ece0", future: "#e9f6ee", border: "#5d9c72", ink: "#2c6641" },
+    "english-review": { today: "#fde4c9", future: "#fff2e5", border: "#d8953b", ink: "#915d13" },
+    "chinese-practice": { today: "#f7d9d5", future: "#fcebe9", border: "#c66d63", ink: "#8e3b34" },
+    "chinese-reading": { today: "#d7edf5", future: "#eaf7fb", border: "#519cb6", ink: "#24667d" },
+    "english-reading": { today: "#e0e4fb", future: "#f0f2ff", border: "#7181c7", ink: "#3f4e95" },
+  }[task.id] || { today: "#e1e8e4", future: "#f0f5f2", border: "#92a39a", ink: "#455149" };
+}
+
+function isWeekend(dateKey) {
+  const weekday = parseDateKey(dateKey).getDay();
+  return weekday === 0 || weekday === 6;
+}
+
+function defaultTaskTime(task) {
+  return {
+    "school-homework": { start: "15:00", end: "17:00" },
+    olympiad: { start: "16:00", end: "17:00" },
+    coding: { start: "15:00", end: "17:00" },
+    "english-homework": { start: "17:00", end: "18:00" },
+    "chinese-practice": { start: "17:00", end: "18:00" },
+    "piano-practice": { start: "18:00", end: "19:00" },
+    "english-review": { start: "19:00", end: "20:00" },
+    "go-game": { start: "19:00", end: "20:00" },
+    "chinese-reading": { start: "20:00", end: "21:00" },
+    "english-reading": { start: "21:00", end: "22:00" },
+    "english-class": { start: "10:00", end: "11:30" },
+    "math-class": { start: "10:00", end: "11:30" },
+    "piano-class": { start: "16:00", end: "17:00" },
+    "go-class": { start: "14:00", end: "15:30" },
+  }[task.id] || { start: "18:00", end: "19:00" };
+}
+
+function normalizeScheduleTimes(savedTimes = {}) {
+  return Object.fromEntries(TASKS
+    .filter((task) => task.type === "study" || task.type === "class")
+    .map((task) => {
+      const fallback = defaultTaskTime(task);
+      const saved = savedTimes[task.id] || {};
+      const legacyTime = saved.start ? saved : {};
+      return [task.id, {
+        default: { ...fallback, ...legacyTime, ...(saved.default || {}) },
+        byWeekday: { ...(saved.byWeekday || {}) },
+      }];
+    }));
+}
+
+function scheduleTimeConfig(task) {
+  const fallback = defaultTaskTime(task);
+  const saved = state.scheduleTimes[task.id] || {};
+  const legacyTime = saved.start ? saved : {};
+  return {
+    default: { ...fallback, ...legacyTime, ...(saved.default || {}) },
+    byWeekday: { ...(saved.byWeekday || {}) },
+  };
+}
+
+function taskTimeForWeekday(task, weekday) {
+  const config = scheduleTimeConfig(task);
+  return { ...config.default, ...(config.byWeekday[weekday] || {}) };
+}
+
+function taskTimeSlot(task, dateKey, timeline = { start: 8, end: 22 }) {
+  const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
+  const hours = timeline.end - timeline.start;
+  const start = clampTimeToTimeline(time.start, timeline);
+  const end = Math.max(start + 0.5, clampTimeToTimeline(time.end, timeline));
+  return { start: Math.min(start, hours - 0.5), end: Math.min(end, hours), hours };
+}
+
+function clampTimeToTimeline(value, timeline) {
+  const [hours, minutes] = String(value || "").split(":").map(Number);
+  const time = (Number.isFinite(hours) ? hours : 18) + (Number.isFinite(minutes) ? minutes / 60 : 0);
+  return Math.min(timeline.end - timeline.start, Math.max(0, time - timeline.start));
+}
+
+function renderMakeupSchedule() {
+  if (!elements.makeupPanel) return;
+  const weekDates = currentWeekDates();
+  const classTasks = weekDates.flatMap((dateKey) => tasksForDate(dateKey).filter((task) => task.type === "class").map((task) => ({ dateKey, task })));
+  const done = classTasks.filter(({ dateKey, task }) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+  elements.makeupPanel.innerHTML = `
+    <div class="week-gantt-summary">
+      <article>
+        <span>本周课程</span>
+        <strong>${classTasks.length} 节</strong>
+      </article>
+      <article>
+        <span>已完成</span>
+        <strong>${done} 节</strong>
+      </article>
+      <article>
+        <span>完成率</span>
+        <strong>${classTasks.length ? Math.round((done / classTasks.length) * 100) : 100}%</strong>
+      </article>
+    </div>
+    <div class="makeup-timetable">
+      <aside class="makeup-time-scale" aria-label="课程时间刻度">
+        ${renderMakeupTimeScale()}
+      </aside>
+      <div class="makeup-week">
+        ${weekDates.map(renderMakeupDay).join("")}
+      </div>
+    </div>
+  `;
+  elements.makeupPanel.querySelectorAll("[data-makeup-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedCheckinDate = button.dataset.makeupDate;
+      setView("checkin");
+      renderTasks();
+      renderSettlement();
+    });
+  });
+  elements.makeupPanel.querySelectorAll("[data-makeup-status]").forEach((button) => {
+    button.addEventListener("click", () => setTaskStatusForDate(button.dataset.date, button.dataset.task, button.dataset.makeupStatus));
+  });
+}
+
+function renderMakeupTimeScale() {
+  return [8, 10, 12, 14, 16, 18, 20, 22].map((hour, index) => `
+    <i style="top: ${(index / 7) * 100}%">${String(hour).padStart(2, "0")}:00</i>
+  `).join("");
+}
+
+function renderMakeupDay(dateKey) {
+  const date = parseDateKey(dateKey);
+  const classes = tasksForDate(dateKey).filter((task) => task.type === "class");
+  return `
+    <section class="makeup-day ${dateKey === todayKey ? "today" : ""}">
+      <button class="makeup-day-title" data-makeup-date="${dateKey}" type="button">
+        <strong>${WEEKDAYS[date.getDay()]}</strong>
+        <span>${date.getMonth() + 1}/${date.getDate()}</span>
+      </button>
+      <div class="makeup-course-list">
+        ${classes.length ? classes.map((task) => renderMakeupCourse(dateKey, task)).join("") : `<p class="muted">无补课课程</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderMakeupCourse(dateKey, task) {
+  const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
+  const done = isDone(record);
+  const statusClass = record.status === "excellent" ? "excellent" : done ? "done" : "pending";
+  const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
+  const slot = taskTimeSlot(task, dateKey);
+  return `
+    <article class="makeup-course ${statusClass}" style="--start: ${slot.start}; --duration: ${slot.end - slot.start}">
+      <div>
+        <strong>${escapeHtml(task.name)}</strong>
+        <p>${time.start}-${time.end} · ${statusText(record.status, task.type)}</p>
+      </div>
+      <div class="segmented">
+        <button class="action-button ${record.status === "completed" ? "active done" : ""}" data-date="${dateKey}" data-task="${task.id}" data-makeup-status="completed" type="button">参加</button>
+        <button class="action-button ${record.status === "excellent" ? "active excellent" : ""}" data-date="${dateKey}" data-task="${task.id}" data-makeup-status="excellent" type="button">表扬</button>
+      </div>
+    </article>
+  `;
+}
+
 function renderTaskCard(task) {
-  const record = recordFor(todayKey, task.id);
+  const record = recordFor(selectedCheckinDate, task.id);
   const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "completed" : "";
   return `
     <article class="task-card ${statusClass}">
@@ -750,7 +1169,7 @@ function setPianoPieces(record, pieces) {
 }
 
 function updatePianoPiece(index, field, value) {
-  const record = recordFor(todayKey, "piano-practice");
+  const record = recordFor(selectedCheckinDate, "piano-practice");
   const pieces = normalizedPianoPieces(record);
   pieces[index] = { ...(pieces[index] || { name: "", progress: "", note: "" }), [field]: value };
   setPianoPieces(record, pieces);
@@ -761,7 +1180,7 @@ function updatePianoPiece(index, field, value) {
 }
 
 function addPianoPiece() {
-  const record = recordFor(todayKey, "piano-practice");
+  const record = recordFor(selectedCheckinDate, "piano-practice");
   const pieces = normalizedPianoPieces(record);
   pieces.push({ name: "", progress: "", note: "" });
   setPianoPieces(record, pieces);
@@ -769,7 +1188,7 @@ function addPianoPiece() {
 }
 
 function deletePianoPiece(index) {
-  const record = recordFor(todayKey, "piano-practice");
+  const record = recordFor(selectedCheckinDate, "piano-practice");
   const pieces = normalizedPianoPieces(record).filter((_, itemIndex) => itemIndex !== index);
   setPianoPieces(record, pieces.length ? pieces : [{ name: "", progress: "", note: "" }]);
   render();
@@ -780,13 +1199,13 @@ function statusButton(taskId, status, label, active, kind) {
 }
 
 function setTaskStatus(taskId, status) {
-  setTaskStatusForDate(todayKey, taskId, status, { respectSettlementLock: true });
+  setTaskStatusForDate(selectedCheckinDate, taskId, status, { respectSettlementLock: true });
 }
 
 function setTaskStatusForDate(dateKey, taskId, status, options = {}) {
-  if (isTodaySettled()) {
-    if (dateKey === todayKey && options.respectSettlementLock) {
-      toast("今天已结算，请先在晚间结算页撤销结算。");
+  if (state.settlements[dateKey]) {
+    if (options.respectSettlementLock) {
+      toast("这一天已结算，请先撤销当日结算。");
       return;
     }
   }
@@ -812,14 +1231,14 @@ function toggleMakeup(dateKey, taskId) {
 }
 
 function setGoWin(taskId, won) {
-  const record = recordFor(todayKey, taskId);
+  const record = recordFor(selectedCheckinDate, taskId);
   record.won = won;
   if (won) record.status = "excellent";
   render();
 }
 
 function updateTaskField(taskId, field, value, inputType) {
-  const record = recordFor(todayKey, taskId);
+  const record = recordFor(selectedCheckinDate, taskId);
   record[field] = inputType === "number" ? String(value) : value;
   saveState();
   renderHeader();
@@ -827,21 +1246,26 @@ function updateTaskField(taskId, field, value, inputType) {
 }
 
 function renderSettlement() {
-  const calc = calculateToday({ preview: true });
-  const settled = state.settlements[todayKey];
-  const record = state.records[todayKey];
+  if (!elements.settlementPanel) return;
+  ensureDateRecord(selectedCheckinDate);
+  const calc = calculateForDate(selectedCheckinDate);
+  const settled = state.settlements[selectedCheckinDate];
+  const record = state.records[selectedCheckinDate];
+  const date = parseDateKey(selectedCheckinDate);
+  const isFuture = selectedCheckinDate > todayKey;
   elements.settlementPanel.innerHTML = `
     <div class="settlement-grid">
       <div>
         <div class="calc-panel">
+          <div class="calc-line"><span>打卡日期</span><strong>${selectedCheckinDate} ${WEEKDAYS[date.getDay()]}</strong></div>
           <div class="calc-line"><span>结算状态</span><strong>${settled ? "已结算" : "待结算"}</strong></div>
           <div class="calc-line"><span>学习任务</span><strong>${calc.studyDone} / ${calc.studyTotal}</strong></div>
           <div class="calc-line"><span>生活习惯</span><strong>${calc.habitPercent}%</strong></div>
           <div class="calc-line"><span>今日达标</span><strong>${record.leave ? "请假/特殊日" : calc.qualified ? "达标" : "未达标"}</strong></div>
           <div class="calc-line"><span>神秘宝箱</span><strong>${calc.boxLabel}</strong></div>
         </div>
-        <h2 style="margin-top:18px">今日记录</h2>
-        <div class="list-panel">${todaysTasks().map(renderSettlementTask).join("")}</div>
+        <h2 style="margin-top:18px">当日记录</h2>
+        <div class="list-panel">${tasksForDate(selectedCheckinDate).map((task) => renderSettlementTask(task, selectedCheckinDate)).join("") || `<p class="muted">这一天没有安排任务。</p>`}</div>
       </div>
       <div>
         <div class="calc-panel">
@@ -853,29 +1277,29 @@ function renderSettlement() {
           <div class="calc-line"><span>质量奖励</span><strong>${calc.qualityBonus}</strong></div>
           <div class="calc-line"><span>宝箱积分</span><strong>${calc.boxPoints}</strong></div>
           <div class="calc-line"><span>连续未达标惩罚</span><strong>-${calc.missPenalty}</strong></div>
-          <div class="calc-line total"><span>今日最终积分</span><strong>${calc.total}</strong></div>
+          <div class="calc-line total"><span>当日预计积分</span><strong>${calc.total}</strong></div>
         </div>
         <label style="margin:14px 0">
           <span><input id="leaveToggle" type="checkbox" ${record.leave ? "checked" : ""} /> 标记为请假/特殊日</span>
         </label>
-        <button id="settleButton" class="primary-button" type="button" ${settled ? "disabled" : ""}>${settled ? "今日已结算" : "确认结算"}</button>
-        ${settled ? `<button id="undoSettleButton" class="ghost-button danger full-width" type="button">撤销今日结算并修改</button>` : ""}
+        <button id="settleButton" class="primary-button" type="button" ${settled || isFuture ? "disabled" : ""}>${isFuture ? "未来日期暂不能结算" : settled ? "当日已结算" : "确认结算"}</button>
+        ${settled ? `<button id="undoSettleButton" class="ghost-button danger full-width" type="button">撤销当日结算并修改</button>` : ""}
       </div>
     </div>
   `;
   document.querySelector("#leaveToggle")?.addEventListener("change", (event) => {
-    state.records[todayKey].leave = event.target.checked;
+    state.records[selectedCheckinDate].leave = event.target.checked;
     render();
   });
-  document.querySelector("#settleButton")?.addEventListener("click", settleToday);
-  document.querySelector("#undoSettleButton")?.addEventListener("click", undoTodaySettlement);
+  document.querySelector("#settleButton")?.addEventListener("click", () => settleDate(selectedCheckinDate));
+  document.querySelector("#undoSettleButton")?.addEventListener("click", () => undoSettlementForDate(selectedCheckinDate));
   elements.settlementPanel.querySelectorAll("[data-settle-status]").forEach((button) => {
-    button.addEventListener("click", () => setTaskStatus(button.dataset.task, button.dataset.settleStatus));
+    button.addEventListener("click", () => setTaskStatusForDate(selectedCheckinDate, button.dataset.task, button.dataset.settleStatus));
   });
 }
 
-function renderSettlementTask(task) {
-  const record = recordFor(todayKey, task.id);
+function renderSettlementTask(task, dateKey = selectedCheckinDate) {
+  const record = recordFor(dateKey, task.id);
   const detail = [
     statusText(record.status, task.type),
     record.duration ? `${record.duration} 分钟` : "",
@@ -1298,6 +1722,35 @@ function renderStats() {
     </section>
 
     <section class="stats-section">
+      <h2>每周学习时间</h2>
+      <div class="weekly-time-grid">
+        ${stats.weeklyMinutes.length ? stats.weeklyMinutes.map((item) => `
+          <div class="weekly-time-row">
+            <span>${item.label}</span>
+            <strong>${formatHours(item.minutes)}</strong>
+            <i><b style="width: ${stats.maxWeeklyMinutes ? Math.round((item.minutes / stats.maxWeeklyMinutes) * 100) : 0}%"></b></i>
+          </div>
+        `).join("") : `<p class="muted">暂无学习用时记录。</p>`}
+      </div>
+    </section>
+
+    <section class="stats-section">
+      <h2>每项任务完成比例</h2>
+      <div class="task-rate-grid">
+        ${stats.taskCompletion.length ? stats.taskCompletion.map((item) => `
+          <div class="task-rate-row">
+            <div>
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>${taskTypeText(item.type)} · ${item.done}/${item.total}</span>
+            </div>
+            <em>${item.rate}%</em>
+            <i><b style="width: ${item.rate}%"></b></i>
+          </div>
+        `).join("") : `<p class="muted">暂无任务记录。</p>`}
+      </div>
+    </section>
+
+    <section class="stats-section">
       <h2>需要关注的任务</h2>
       <div class="stats-table">
         ${stats.lowCompletion.length ? stats.lowCompletion.map((item, index) => `
@@ -1362,6 +1815,7 @@ function renderNameProgressTable(items, nameLabel) {
 function calculateStats(range) {
   const dateKeys = statDateKeys(range);
   const taskStats = new Map();
+  const weeklyMinutes = new Map();
   let totalPoints = 0;
   let settledDays = 0;
   let qualifiedDays = 0;
@@ -1395,14 +1849,18 @@ function calculateStats(range) {
       if (task.type === "study") {
         studyTotal += 1;
         if (done) studyDone += 1;
-        if (done) studyMinutes += minutes;
+        if (done) {
+          studyMinutes += minutes;
+          const weekKey = startOfWeekKey(date);
+          weeklyMinutes.set(weekKey, (weeklyMinutes.get(weekKey) || 0) + minutes);
+        }
         if (record.status === "excellent") excellentCount += 1;
       }
       if (task.type === "habit") {
         habitTotal += 1;
         if (done) habitDone += 1;
       }
-      if (task.type === "study" || task.type === "habit") {
+      if (task.type !== "bonus") {
         const item = taskStats.get(task.id) || { name: task.name, type: task.type, total: 0, done: 0, excellent: 0, minutes: 0 };
         item.total += 1;
         if (done) item.done += 1;
@@ -1443,6 +1901,12 @@ function calculateStats(range) {
     .map((item) => ({ ...item, rate: item.total ? Math.round((item.done / item.total) * 100) : 0 }))
     .sort((a, b) => a.rate - b.rate || b.total - a.total)
     .slice(0, 8);
+  const taskCompletion = [...taskStats.values()]
+    .map((item) => ({ ...item, rate: item.total ? Math.round((item.done / item.total) * 100) : 0 }))
+    .sort((a, b) => a.type.localeCompare(b.type) || a.rate - b.rate || a.name.localeCompare(b.name, "zh-CN"));
+  const weeklyMinuteItems = [...weeklyMinutes.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([weekKey, minutes]) => ({ label: weekRangeLabel(weekKey), minutes }));
   const pianoItems = [...piano.values()].sort((a, b) => b.lastDate.localeCompare(a.lastDate));
   const readingItems = [...reading.values()].sort((a, b) => b.lastDate.localeCompare(a.lastDate));
 
@@ -1458,6 +1922,9 @@ function calculateStats(range) {
     habitRate: habitTotal ? Math.round((habitDone / habitTotal) * 100) : 0,
     studyMinutes,
     excellentCount,
+    taskCompletion,
+    weeklyMinutes: weeklyMinuteItems,
+    maxWeeklyMinutes: Math.max(0, ...weeklyMinuteItems.map((item) => item.minutes)),
     lowCompletion,
     piano: {
       items: pianoItems,
@@ -1483,6 +1950,20 @@ function statDateKeys(range) {
     return [...keys].filter((dateKey) => dateKey.startsWith(currentMonth)).sort();
   }
   return [...keys].sort();
+}
+
+function startOfWeekKey(date) {
+  const start = new Date(date);
+  const day = start.getDay() || 7;
+  start.setDate(start.getDate() - day + 1);
+  return toDateKey(start);
+}
+
+function weekRangeLabel(weekKey) {
+  const start = parseDateKey(weekKey);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return `${start.getMonth() + 1}/${start.getDate()}-${end.getMonth() + 1}/${end.getDate()}`;
 }
 
 function formatHours(minutes) {
@@ -1614,7 +2095,7 @@ function updateBadges() {
 function renderScheduleEditor() {
   const groups = [
     { type: "study", title: "学习任务" },
-    { type: "class", title: "课外班" },
+    { type: "class", title: "补课课程" },
     { type: "habit", title: "生活习惯" },
     { type: "bonus", title: "加分任务" },
   ];
@@ -1626,9 +2107,29 @@ function renderScheduleEditor() {
   `).join("");
   elements.scheduleEditor.querySelectorAll("[data-schedule]").forEach((input) => {
     input.addEventListener("change", () => {
-      const days = [...document.querySelectorAll(`[data-schedule="${input.dataset.schedule}"]:checked`)].map((item) => Number(item.value));
+      const days = [...elements.scheduleEditor.querySelectorAll(`[data-schedule="${input.dataset.schedule}"]:checked`)].map((item) => Number(item.value));
       state.schedules[input.dataset.schedule] = days;
       render();
+    });
+  });
+  elements.scheduleEditor.querySelectorAll("[data-schedule-time]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const taskId = input.dataset.scheduleTime;
+      const task = taskById(taskId);
+      const weekday = Number(input.dataset.weekday);
+      const config = scheduleTimeConfig(task);
+      const current = taskTimeForWeekday(task, weekday);
+      const next = { ...current, [input.dataset.timeField]: input.value };
+      if (next.end <= next.start) {
+        toast("结束时间需要晚于开始时间。");
+        renderScheduleEditor();
+        return;
+      }
+      config.byWeekday[weekday] = next;
+      state.scheduleTimes[taskId] = config;
+      renderWeekGantt();
+      renderMakeupSchedule();
+      saveState();
     });
   });
 }
@@ -1644,8 +2145,24 @@ function renderScheduleItem(task) {
             <label><input data-schedule="${task.id}" type="checkbox" value="${index}" ${selected.includes(index) ? "checked" : ""} />${day}</label>
           `).join("")}
         </div>
+        ${task.type === "study" || task.type === "class" ? `
+          <div class="schedule-time-grid">
+            ${selected.length ? selected.map((weekday) => renderScheduleTimeRow(task, weekday)).join("") : `<span class="muted">请先选择安排日期。</span>`}
+          </div>
+        ` : ""}
       </div>
       <span class="point-pill">+${task.points}</span>
+    </div>
+  `;
+}
+
+function renderScheduleTimeRow(task, weekday) {
+  const time = taskTimeForWeekday(task, weekday);
+  return `
+    <div class="schedule-time-row">
+      <span>${WEEKDAYS[weekday]}</span>
+      <label>开始 <input data-schedule-time="${task.id}" data-weekday="${weekday}" data-time-field="start" type="time" value="${time.start}" /></label>
+      <label>结束 <input data-schedule-time="${task.id}" data-weekday="${weekday}" data-time-field="end" type="time" value="${time.end}" /></label>
     </div>
   `;
 }
@@ -1709,7 +2226,7 @@ function displayTaskName(task, record) {
 }
 
 function taskTypeText(type) {
-  return { study: "学习任务", habit: "生活习惯", class: "课外班", bonus: "加分任务" }[type] || "";
+  return { study: "学习任务", habit: "生活习惯", class: "补课课程", bonus: "加分任务" }[type] || "";
 }
 
 function statusText(status, type) {

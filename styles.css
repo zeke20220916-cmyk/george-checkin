@@ -204,7 +204,7 @@ h3 {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 9px;
   margin: 16px 0 18px;
 }
@@ -222,6 +222,230 @@ h3 {
   color: #fff;
   border-color: var(--blue);
   background: var(--blue);
+}
+
+.overview-panel,
+.makeup-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-card,
+.overview-panel-card,
+.makeup-day,
+.makeup-course {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.overview-card {
+  min-height: 126px;
+  padding: 16px;
+}
+
+.overview-card span,
+.overview-card p,
+.makeup-course p,
+.weekly-time-row span,
+.task-rate-row span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.overview-card strong {
+  display: block;
+  margin: 9px 0 7px;
+  font-size: 30px;
+  line-height: 1.05;
+}
+
+.overview-card p,
+.makeup-course p {
+  margin: 0;
+}
+
+.overview-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 14px;
+}
+
+.overview-panel-card {
+  padding: 16px;
+}
+
+.week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.week-strip-day {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  min-height: 142px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fbfdfc;
+  font-weight: 900;
+}
+
+.week-strip-day.today {
+  border-color: var(--blue);
+  background: #f5f9ff;
+}
+
+.week-strip-day span,
+.week-strip-day em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 13px;
+}
+
+.week-strip-day i {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 62px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.week-strip-day b {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  border-radius: inherit;
+  background: var(--green);
+}
+
+.focus-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.focus-line:last-child {
+  border-bottom: 0;
+}
+
+.focus-line span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.date-picker {
+  min-width: 190px;
+}
+
+.makeup-timetable {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.makeup-time-scale {
+  position: relative;
+  height: 552px;
+  margin-top: 48px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.makeup-time-scale i {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font-style: normal;
+}
+
+.makeup-time-scale i:first-child {
+  transform: none;
+}
+
+.makeup-time-scale i:last-child {
+  transform: translateY(-100%);
+}
+
+.makeup-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.makeup-day {
+  display: grid;
+  align-content: start;
+  min-height: 600px;
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(28, 48, 39, 0.08);
+}
+
+.makeup-day.today {
+  border-color: var(--blue);
+}
+
+.makeup-day-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  background: #fbfdfc;
+  font-weight: 900;
+}
+
+.makeup-course-list {
+  position: relative;
+  min-height: 552px;
+  padding: 10px;
+  background-image: linear-gradient(to bottom, rgba(104, 124, 114, 0.14) 1px, transparent 1px);
+  background-size: 100% 14.285714286%;
+}
+
+.makeup-course {
+  position: absolute;
+  top: calc(10px + (100% - 20px) * var(--start) / 14);
+  left: 10px;
+  width: calc(100% - 20px);
+  min-height: max(82px, calc((100% - 20px) * var(--duration) / 14));
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-color: #cfd8d3;
+  background: #e9eeeb;
+  box-shadow: none;
+}
+
+.makeup-course.done {
+  border-color: #b9ddc4;
+  background: #ddf2e4;
+}
+
+.makeup-course.excellent {
+  border-color: #9ed3ae;
+  background: #c6eacf;
 }
 
 .view {
@@ -255,6 +479,335 @@ h3 {
 
 .progress-panel strong {
   font-size: 28px;
+}
+
+.week-gantt-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.week-gantt-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.week-gantt-summary article,
+.week-gantt-board {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.week-gantt-summary article {
+  min-height: 92px;
+  padding: 14px;
+}
+
+.week-gantt-summary span,
+.week-gantt-head,
+.week-day-button span,
+.week-empty,
+.week-gantt-legend {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.week-gantt-summary strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 28px;
+}
+
+.routine-overview {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.routine-overview > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.routine-overview > div:first-child span,
+.routine-group span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.5;
+}
+
+.routine-group-list {
+  display: grid;
+  gap: 8px;
+}
+
+.routine-group {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.week-schedule-section {
+  display: grid;
+  gap: 8px;
+}
+
+.week-schedule-section h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.week-gantt-board {
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(28, 48, 39, 0.08);
+}
+
+.week-gantt-head,
+.week-gantt-row {
+  display: grid;
+  grid-template-columns: 132px minmax(480px, 1fr) 96px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.week-gantt-head {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfdfc;
+  font-size: 13px;
+}
+
+.week-gantt-head > span:not(:first-child) {
+  text-align: center;
+}
+
+.timeline-scale {
+  position: relative;
+  display: block;
+  height: 16px;
+}
+
+.timeline-scale i {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.timeline-scale i:first-child {
+  transform: none;
+}
+
+.timeline-scale i:last-child {
+  transform: translateX(-100%);
+}
+
+.week-gantt-row {
+  min-height: 104px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfdfc;
+}
+
+.week-gantt-row:nth-of-type(odd) .study-timeline {
+  background-color: #edf6f1;
+}
+
+.week-gantt-row:nth-of-type(even) .study-timeline {
+  background-color: #f0f1fa;
+}
+
+.week-gantt-row:last-child {
+  border-bottom: 0;
+}
+
+.week-day-button {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+}
+
+.week-day-summary {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+.week-day-button:hover,
+.week-day-button:focus-visible {
+  background: rgba(255, 255, 255, 0.58);
+  outline: none;
+}
+
+.week-gantt-row.today .week-day-button strong {
+  color: var(--blue);
+}
+
+.study-timeline {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--lane-bg, var(--surface-soft));
+}
+
+.study-timeline {
+  position: relative;
+  min-height: 88px;
+  background-color: var(--lane-bg, var(--surface-soft));
+}
+
+.timeline-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(104, 124, 114, 0.2);
+}
+
+.week-task {
+  position: absolute;
+  top: calc(8px + var(--track) * 34px);
+  left: calc(8px + (100% - 16px) * var(--start));
+  width: calc((100% - 16px) * var(--duration) - 5px);
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 27px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 1px solid #c7d1cb;
+  color: #455149;
+  background: #e3e8e5;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-task.study {
+  border-left-width: 4px;
+  border-left-color: #a8b7af;
+}
+
+.week-gantt-row.today .week-task:not(.done):not(.excellent) {
+  border-color: var(--task-border);
+  border-left-color: var(--task-border);
+  color: var(--task-ink);
+  background: var(--task-today-bg);
+}
+
+.week-gantt-row.future .week-task:not(.done):not(.excellent) {
+  border-color: var(--task-border);
+  border-left-color: var(--task-border);
+  color: var(--task-ink);
+  background: var(--task-future-bg);
+}
+
+.week-task.done {
+  border-color: #b9ddc4;
+  border-left-color: #5aaa73;
+  color: #28623f;
+  background: #ddf2e4;
+}
+
+.week-task.excellent {
+  border-color: #9ed3ae;
+  border-left-color: #3d9560;
+  color: #155c35;
+  background: #c6eacf;
+}
+
+.week-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 28px;
+  font-size: 13px;
+}
+
+.week-progress {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  min-width: 0;
+}
+
+.week-progress strong {
+  text-align: center;
+}
+
+.week-progress-track {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.week-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+
+.week-gantt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.week-gantt-legend span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-dot.study {
+  background: var(--blue);
+}
+
+.legend-dot.habit {
+  background: var(--amber);
+}
+
+.legend-dot.class,
+.legend-dot.excellent {
+  background: var(--purple);
+}
+
+.legend-dot.bonus {
+  background: var(--green);
 }
 
 .task-sections {
@@ -503,6 +1056,58 @@ textarea {
 .stats-table {
   display: grid;
   gap: 8px;
+}
+
+.weekly-time-grid,
+.task-rate-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.weekly-time-row,
+.task-rate-row {
+  display: grid;
+  grid-template-columns: 120px 110px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.weekly-time-row i,
+.task-rate-row i {
+  display: block;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.weekly-time-row b,
+.task-rate-row b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.task-rate-row {
+  grid-template-columns: minmax(0, 1fr) 72px minmax(120px, 0.7fr);
+}
+
+.task-rate-row div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.task-rate-row em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 900;
+  text-align: right;
 }
 
 .stats-row {
@@ -826,6 +1431,40 @@ textarea {
   width: auto;
 }
 
+.schedule-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.schedule-time-grid {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.schedule-time-grid .schedule-time-row {
+  margin-top: 0;
+}
+
+.schedule-time-row label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--ink);
+}
+
+.schedule-time-row input {
+  width: 108px;
+  min-height: 32px;
+  padding: 4px 7px;
+}
+
 .settings-header {
   display: flex;
   justify-content: space-between;
@@ -927,6 +1566,10 @@ code {
 @media (max-width: 920px) {
   .status-board,
   .status-metrics,
+  .overview-grid,
+  .overview-split,
+  .makeup-week,
+  .week-gantt-summary,
   .task-grid,
   .reward-grid,
   .badge-grid,
@@ -938,8 +1581,33 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .makeup-timetable {
+    grid-template-columns: 1fr;
+  }
+
+  .makeup-time-scale {
+    display: none;
+  }
+
+  .makeup-day {
+    min-height: auto;
+  }
+
+  .makeup-course-list {
+    display: grid;
+    gap: 8px;
+    min-height: auto;
+    background-image: none;
+  }
+
+  .makeup-course {
+    position: static;
+    width: auto;
+    min-height: 0;
+  }
+
   .tabs {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -971,6 +1639,11 @@ code {
   }
 
   .progress-grid,
+  .week-strip,
+  .week-gantt-head,
+  .week-gantt-row,
+  .weekly-time-row,
+  .task-rate-row,
   .field-row,
   .piece-item,
   .cloud-actions,
@@ -984,5 +1657,22 @@ code {
   .stats-row,
   .mini-row {
     grid-template-columns: 1fr;
+  }
+
+  .week-gantt-head {
+    display: none;
+  }
+
+  .study-timeline {
+    min-height: auto;
+  }
+
+  .routine-overview,
+  .routine-group {
+    grid-template-columns: 1fr;
+  }
+
+  .week-progress strong {
+    text-align: left;
   }
 }
