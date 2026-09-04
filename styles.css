@@ -543,16 +543,22 @@ h3 {
   opacity: 0.8;
 }
 
-.makeup-month-day.today .makeup-month-course:not(.done):not(.excellent) {
-  border-color: var(--task-border);
-  color: var(--task-ink);
-  background: var(--task-today-bg);
+.makeup-month-course.future {
+  border-color: #94b7ef;
+  color: #20589f;
+  background: #eaf2ff;
 }
 
-.makeup-month-day.future .makeup-month-course:not(.done):not(.excellent) {
-  border-color: var(--task-border);
-  color: var(--task-ink);
-  background: var(--task-future-bg);
+.makeup-month-course.pending {
+  border-color: #c7d1cb;
+  color: #455149;
+  background: #e3e8e5;
+}
+
+.makeup-month-course.missed {
+  border-color: #e5bd22;
+  color: #725500;
+  background: #fff0a8;
 }
 
 .makeup-month-course.done {
@@ -565,6 +571,50 @@ h3 {
   border-color: #9ed3ae;
   color: #155c35;
   background: #c6eacf;
+}
+
+.makeup-color-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.makeup-color-legend span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.makeup-color-legend i {
+  width: 10px;
+  height: 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+.makeup-color-legend .future {
+  border-color: #94b7ef;
+  background: #eaf2ff;
+}
+
+.makeup-color-legend .pending {
+  border-color: #c7d1cb;
+  background: #e3e8e5;
+}
+
+.makeup-color-legend .missed {
+  border-color: #e5bd22;
+  background: #fff0a8;
+}
+
+.makeup-color-legend .done {
+  border-color: #b9ddc4;
+  background: #ddf2e4;
 }
 
 .view {

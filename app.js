@@ -962,6 +962,12 @@ function renderMakeupSchedule() {
           ${renderMakeupMonthDays().join("")}
         </div>
       </div>
+      <div class="makeup-color-legend" aria-label="课程状态颜色说明">
+        <span><i class="future"></i>未发生</span>
+        <span><i class="pending"></i>待确认</span>
+        <span><i class="missed"></i>未上课</span>
+        <span><i class="done"></i>已上课</span>
+      </div>
     </section>
   `;
   window.lucide?.createIcons({ attrs: { "aria-hidden": "true" } });
@@ -1019,15 +1025,24 @@ function renderMakeupMonthDay(dateKey) {
 
 function renderMakeupMonthCourse(dateKey, task) {
   const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
-  const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "done" : "";
+  const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "done" : record.status === "missed" ? "missed" : courseHasOccurred(dateKey, task) ? "pending" : "future";
   const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
-  const palette = taskPalette(task);
   return `
-    <article class="makeup-month-course ${statusClass}" style="--task-today-bg: ${palette.today}; --task-future-bg: ${palette.future}; --task-border: ${palette.border}; --task-ink: ${palette.ink}">
+    <article class="makeup-month-course ${statusClass}">
       <strong>${escapeHtml(task.name)}</strong>
       <span>${time.start} 至 ${time.end}</span>
     </article>
   `;
+}
+
+function courseHasOccurred(dateKey, task) {
+  if (dateKey < todayKey) return true;
+  if (dateKey > todayKey) return false;
+  const now = new Date();
+  const time = taskTimeForWeekday(task, now.getDay());
+  const [hours, minutes] = String(time.start || "00:00").split(":").map(Number);
+  const startMinutes = (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
+  return now.getHours() * 60 + now.getMinutes() >= startMinutes;
 }
 
 function renderTaskCard(task) {
@@ -1071,9 +1086,10 @@ function renderTaskControls(task, record) {
   }
   if (task.type === "class") {
     return `
-      <div class="segmented">
+      <div class="segmented three">
         ${statusButton(task.id, "completed", "已参加", record.status === "completed", "done")}
         ${statusButton(task.id, "excellent", "老师表扬", record.status === "excellent", "excellent")}
+        ${statusButton(task.id, "missed", "未上课", record.status === "missed", "warn")}
       </div>
     `;
   }
@@ -2232,6 +2248,7 @@ function taskTypeText(type) {
 function statusText(status, type) {
   if (status === "excellent") return type === "class" ? "老师表扬" : "优秀完成";
   if (status === "completed") return type === "class" ? "已参加" : "已完成";
+  if (status === "missed") return type === "class" ? "未上课" : "未完成";
   return "未完成";
 }
 
