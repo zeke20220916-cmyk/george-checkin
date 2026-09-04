@@ -691,9 +691,9 @@ h3 {
 
 .routine-overview {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   align-items: start;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -702,7 +702,7 @@ h3 {
 
 .routine-overview-heading {
   display: grid;
-  gap: 5px;
+  gap: 6px;
 }
 
 .routine-overview-heading span {
@@ -714,27 +714,47 @@ h3 {
 
 .routine-group-list {
   display: grid;
-  grid-template-columns: 1fr 0.85fr 1.55fr;
+  grid-template-columns: minmax(190px, 1fr) minmax(170px, 0.9fr) minmax(300px, 1.65fr);
   gap: 12px;
 }
 
 .routine-group {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   align-items: start;
+  min-height: 132px;
+  padding: 13px;
+  border: 1px solid #bfd4f4;
+  border-radius: 8px;
+  background: #f4f8ff;
+}
+
+.routine-group-title {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 24px;
+  color: #1d4f8e;
+  font-size: 15px;
+}
+
+.routine-group-title svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.4;
 }
 
 .routine-task-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
 }
 
 .routine-task-card {
   display: inline-flex;
   min-height: 32px;
   align-items: center;
-  padding: 6px 9px;
+  padding: 7px 10px;
   border: 1px solid #b8cef1;
   border-radius: 6px;
   color: #26558d;
@@ -743,10 +763,28 @@ h3 {
   font-weight: 900;
 }
 
+.routine-group.sleep {
+  border-color: #d6c9f1;
+  background: #f8f5ff;
+}
+
+.routine-group.sleep .routine-group-title {
+  color: #61459a;
+}
+
 .routine-group.sleep .routine-task-card {
   border-color: #d2c3f3;
   color: #684c9a;
   background: #f5f0ff;
+}
+
+.routine-group.bonus {
+  border-color: #f0cc87;
+  background: #fffaf0;
+}
+
+.routine-group.bonus .routine-group-title {
+  color: #86570d;
 }
 
 .routine-group.bonus .routine-task-card {

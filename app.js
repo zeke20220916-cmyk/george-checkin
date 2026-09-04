@@ -771,17 +771,23 @@ function renderWeekGantt() {
 
 function renderRoutineOverview() {
   const groups = [
-    { title: "回家后", tone: "home", taskIds: ["hand-wash", "fold-clothes", "slippers", "desk-bag"] },
-    { title: "睡前", tone: "sleep", taskIds: ["sleep-routine", "prepare-clothes"] },
-    { title: "可选加分", tone: "bonus", taskIds: ["diary", "mistake-book", "help-family", "extra-reading", "clean-meal", "make-bed", "other-bonus"] },
+    { title: "回家后", tone: "home", icon: "home", taskIds: ["hand-wash", "fold-clothes", "slippers", "desk-bag"] },
+    { title: "睡前", tone: "sleep", icon: "moon", taskIds: ["sleep-routine", "prepare-clothes"] },
+    { title: "可选加分", tone: "bonus", icon: "sparkles", taskIds: ["diary", "mistake-book", "help-family", "extra-reading", "clean-meal", "make-bed", "other-bonus"] },
   ];
   return `
     <section class="routine-overview">
-      <div class="routine-overview-heading"><strong>固定例行</strong><span>每天按场景完成，具体打卡在日期详情中确认。</span></div>
+      <div class="routine-overview-heading">
+        <strong>固定例行</strong>
+        <span>每天按场景完成，具体打卡在日期详情中确认。</span>
+      </div>
       <div class="routine-group-list">
         ${groups.map((group) => `
           <section class="routine-group ${group.tone}">
-            <strong>${group.title}</strong>
+            <div class="routine-group-title">
+              <i data-lucide="${group.icon}"></i>
+              <strong>${group.title}</strong>
+            </div>
             <div class="routine-task-list">
               ${group.taskIds.map((id) => `<span class="routine-task-card">${escapeHtml(taskById(id).name)}</span>`).join("")}
             </div>
