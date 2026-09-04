@@ -870,6 +870,58 @@ h3 {
   font-size: 13px;
 }
 
+.calendar-task-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.calendar-task-title strong {
+  min-width: 0;
+}
+
+.quick-checkin-button {
+  display: grid;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  color: #4b7360;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.quick-checkin-button:hover:not(:disabled),
+.quick-checkin-button:focus-visible:not(:disabled) {
+  border-color: var(--green);
+  outline: none;
+  color: #fff;
+  background: var(--green);
+}
+
+.quick-checkin-button:disabled {
+  border-color: #ced7d2;
+  color: #a7b2ac;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.quick-checkin-button.is-done {
+  border-color: #5aaa73;
+  color: #fff;
+  background: #5aaa73;
+}
+
+.quick-checkin-button svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 3;
+}
+
 .week-calendar-task span {
   color: inherit;
   font-size: 10px;

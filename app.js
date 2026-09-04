@@ -763,6 +763,10 @@ function renderWeekGantt() {
       renderSettlement();
     });
   });
+  elements.weekGanttPanel.querySelectorAll("[data-quick-checkin]").forEach((button) => {
+    button.addEventListener("click", () => quickCheckin(button.dataset.date, button.dataset.task));
+  });
+  window.lucide?.createIcons({ attrs: { "aria-hidden": "true" } });
 }
 
 function renderRoutineOverview() {
@@ -842,7 +846,10 @@ function renderWeekCalendarTask(dateKey, task) {
   const durationMinutes = Math.max(15, Math.round((slot.end - slot.start) * 60));
   return `
     <article class="week-calendar-task ${statusClass}" style="--task-today-bg: ${palette.today}; --task-future-bg: ${palette.future}; --task-border: ${palette.border}; --task-ink: ${palette.ink}" title="${escapeAttr(taskTypeText(task.type))} · ${escapeAttr(statusText(record.status, task.type))}">
-      <strong>${escapeHtml(displayTaskName(task, record))}</strong>
+      <div class="calendar-task-title">
+        <strong>${escapeHtml(displayTaskName(task, record))}</strong>
+        ${renderQuickCheckinButton(dateKey, task, record)}
+      </div>
       <span>${time.start} 至 ${time.end}</span>
       <span>用时 ${durationMinutes} 分钟</span>
     </article>
@@ -985,6 +992,9 @@ function renderMakeupSchedule() {
       renderSettlement();
     });
   });
+  elements.makeupPanel.querySelectorAll("[data-quick-checkin]").forEach((button) => {
+    button.addEventListener("click", () => quickCheckin(button.dataset.date, button.dataset.task));
+  });
 }
 
 function datesInMonth(month) {
@@ -1029,10 +1039,46 @@ function renderMakeupMonthCourse(dateKey, task) {
   const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
   return `
     <article class="makeup-month-course ${statusClass}">
-      <strong>${escapeHtml(task.name)}</strong>
+      <div class="calendar-task-title">
+        <strong>${escapeHtml(task.name)}</strong>
+        ${renderQuickCheckinButton(dateKey, task, record)}
+      </div>
       <span>${time.start} 至 ${time.end}</span>
     </article>
   `;
+}
+
+function renderQuickCheckinButton(dateKey, task, record) {
+  const locked = dateKey > todayKey || Boolean(state.settlements[dateKey]);
+  const done = isDone(record);
+  const label = done
+    ? "已打卡"
+    : locked
+      ? dateKey > todayKey ? "未来任务不可打卡" : "已结算"
+      : task.type === "class" ? "标记已上课" : "标记完成";
+  return `
+    <button class="quick-checkin-button ${done ? "is-done" : ""}"
+      data-quick-checkin="true" data-date="${dateKey}" data-task="${task.id}"
+      type="button" title="${label}" aria-label="${label}" ${locked || done ? "disabled" : ""}>
+      <i data-lucide="check"></i>
+    </button>
+  `;
+}
+
+function quickCheckin(dateKey, taskId) {
+  if (dateKey > todayKey) {
+    toast("未来任务暂不能打卡。");
+    return;
+  }
+  if (state.settlements[dateKey]) {
+    toast("这一天已结算，请先撤销结算后修改。");
+    return;
+  }
+  const task = taskById(taskId);
+  const action = task.type === "class" ? "标记为已上课" : "标记为完成";
+  if (!window.confirm(`确认将“${task.name}”${action}吗？`)) return;
+  setTaskStatusForDate(dateKey, taskId, "completed", { respectSettlementLock: true });
+  toast(task.type === "class" ? "已标记为已上课。" : "已标记为完成。");
 }
 
 function courseHasOccurred(dateKey, task) {
