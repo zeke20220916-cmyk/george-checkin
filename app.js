@@ -7,7 +7,7 @@ let selectedCheckinDate = todayKey;
 let selectedMakeupMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 let statsRange = "week";
 
-const TASKS = [
+const DEFAULT_TASKS = [
   { id: "school-homework", name: "学校作业", type: "study", points: 2, bonusLabel: "全对 +1", weekdays: [1, 2, 3, 4, 5] },
   { id: "olympiad", name: "奥数作业", type: "study", points: 2, bonusLabel: "常规题全对 +1", weekdays: [2, 4] },
   { id: "coding", name: "编程作业", type: "study", points: 2, bonusLabel: "独立全对 +1", weekdays: [6] },
@@ -36,6 +36,8 @@ const TASKS = [
   { id: "prepare-clothes", name: "准备第二天衣物", type: "bonus", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
   { id: "other-bonus", name: "其他", type: "bonus", points: 1, customPoints: true, weekdays: [1, 2, 3, 4, 5, 6, 0] },
 ];
+
+let TASKS = [...DEFAULT_TASKS];
 
 const REWARDS = [
   { id: "video", name: "10 分钟正经视频", cost: 20, detail: "内容需家长认可，例如科普、纪录片、学习类视频。" },
@@ -86,6 +88,7 @@ const elements = {
   dataTransferText: document.querySelector("#dataTransferText"),
   exportDataButton: document.querySelector("#exportDataButton"),
   importDataButton: document.querySelector("#importDataButton"),
+  customTaskForm: document.querySelector("#customTaskForm"),
   climbingCard: document.querySelector("#climbingCard"),
   statsPanel: document.querySelector("#statsPanel"),
   toast: document.querySelector("#toast"),
@@ -95,6 +98,7 @@ const elements = {
 };
 
 let state = loadState();
+syncTaskCatalog(state.customTasks);
 const cloud = {
   configured: Boolean(window.GEORGE_FIREBASE_CONFIG),
   ready: false,
@@ -143,6 +147,7 @@ document.querySelectorAll("[data-stats-range]").forEach((button) => {
 elements.resetButton.addEventListener("click", resetData);
 elements.exportDataButton.addEventListener("click", exportLocalData);
 elements.importDataButton.addEventListener("click", importLocalData);
+elements.customTaskForm?.addEventListener("submit", addCustomTask);
 elements.checkinDateInput?.addEventListener("change", (event) => {
   selectedCheckinDate = event.target.value || todayKey;
   ensureDateRecord(selectedCheckinDate);
@@ -157,7 +162,7 @@ render();
 function defaultState() {
   const schedules = {};
   const scheduleTimes = {};
-  TASKS.forEach((task) => {
+  DEFAULT_TASKS.forEach((task) => {
     schedules[task.id] = [...task.weekdays];
     if (task.type === "study" || task.type === "class") {
       scheduleTimes[task.id] = { default: defaultTaskTime(task), byWeekday: {} };
@@ -171,6 +176,7 @@ function defaultState() {
     settlements: {},
     schedules,
     scheduleTimes,
+    customTasks: [],
     redemptions: [],
     unlockedBadges: [],
     currentTitle: "",
@@ -187,11 +193,14 @@ function loadState() {
   try {
     const parsed = JSON.parse(stored);
     const base = defaultState();
+    const customTasks = normalizeCustomTasks(parsed.customTasks);
+    const customSchedules = Object.fromEntries(customTasks.map((task) => [task.id, [...task.weekdays]]));
     return {
       ...base,
       ...parsed,
-      schedules: { ...base.schedules, ...(parsed.schedules || {}) },
-      scheduleTimes: normalizeScheduleTimes(parsed.scheduleTimes),
+      customTasks,
+      schedules: { ...base.schedules, ...customSchedules, ...(parsed.schedules || {}) },
+      scheduleTimes: normalizeScheduleTimes(parsed.scheduleTimes, customTasks),
       flags: { ...base.flags, ...(parsed.flags || {}) },
     };
   } catch {
@@ -318,6 +327,7 @@ function subscribeCloudState() {
       cloud.applyingRemote = true;
       cloud.conflict = false;
       state = mergeState(remoteState);
+      syncTaskCatalog(state.customTasks);
       ensureToday();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       cloud.applyingRemote = false;
@@ -360,11 +370,14 @@ function cloudStateRef() {
 
 function mergeState(remoteState) {
   const base = defaultState();
+  const customTasks = normalizeCustomTasks(remoteState.customTasks);
+  const customSchedules = Object.fromEntries(customTasks.map((task) => [task.id, [...task.weekdays]]));
   return {
     ...base,
     ...remoteState,
-    schedules: { ...base.schedules, ...(remoteState.schedules || {}) },
-    scheduleTimes: normalizeScheduleTimes(remoteState.scheduleTimes),
+    customTasks,
+    schedules: { ...base.schedules, ...customSchedules, ...(remoteState.schedules || {}) },
+    scheduleTimes: normalizeScheduleTimes(remoteState.scheduleTimes, customTasks),
     flags: { ...base.flags, ...(remoteState.flags || {}) },
   };
 }
@@ -450,6 +463,7 @@ function downloadCloudStateToLocal() {
       }
       cloud.applyingRemote = true;
       state = mergeState(remoteState);
+      syncTaskCatalog(state.customTasks);
       ensureToday();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       cloud.applyingRemote = false;
@@ -466,6 +480,7 @@ function downloadCloudStateToLocal() {
 function stateActivityScore(value) {
   if (!value) return 0;
   let score = Number(value.points || 0) ? 5 : 0;
+  score += (value.customTasks || []).length * 3;
   score += Object.keys(value.settlements || {}).length * 10;
   Object.values(value.records || {}).forEach((day) => {
     if (day.leave) score += 2;
@@ -543,6 +558,7 @@ function importLocalData() {
       return;
     }
     state = mergeState(importedState);
+    syncTaskCatalog(state.customTasks);
     state.updatedAt = new Date().toISOString();
     ensureToday();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -900,8 +916,8 @@ function defaultTaskTime(task) {
   }[task.id] || { start: "18:00", end: "19:00" };
 }
 
-function normalizeScheduleTimes(savedTimes = {}) {
-  return Object.fromEntries(TASKS
+function normalizeScheduleTimes(savedTimes = {}, customTasks = []) {
+  return Object.fromEntries([...DEFAULT_TASKS, ...normalizeCustomTasks(customTasks)]
     .filter((task) => task.type === "study" || task.type === "class")
     .map((task) => {
       const fallback = defaultTaskTime(task);
@@ -912,6 +928,32 @@ function normalizeScheduleTimes(savedTimes = {}) {
         byWeekday: { ...(saved.byWeekday || {}) },
       }];
     }));
+}
+
+function normalizeCustomTasks(tasks = []) {
+  if (!Array.isArray(tasks)) return [];
+  return tasks
+    .filter((task) => task && typeof task.name === "string" && task.name.trim())
+    .map((task) => ({
+      id: String(task.id || `custom-${Date.now().toString(36)}`),
+      name: task.name.trim(),
+      type: ["study", "class", "habit", "bonus"].includes(task.type) ? task.type : "study",
+      points: Math.max(0, Number(task.points || 1)),
+      bonusLabel: typeof task.bonusLabel === "string" ? task.bonusLabel : "",
+      custom: true,
+      weekdays: normalizeWeekdays(task.weekdays),
+    }))
+    .filter((task, index, list) => task.weekdays.length && list.findIndex((item) => item.id === task.id) === index);
+}
+
+function normalizeWeekdays(days = []) {
+  return [...new Set((Array.isArray(days) ? days : [])
+    .map((day) => Number(day))
+    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
+}
+
+function syncTaskCatalog(customTasks = []) {
+  TASKS = [...DEFAULT_TASKS, ...normalizeCustomTasks(customTasks)];
 }
 
 function scheduleTimeConfig(task) {
@@ -2200,6 +2242,9 @@ function renderScheduleEditor() {
       saveState();
     });
   });
+  elements.scheduleEditor.querySelectorAll("[data-delete-custom-task]").forEach((button) => {
+    button.addEventListener("click", () => deleteCustomTask(button.dataset.deleteCustomTask));
+  });
 }
 
 function renderScheduleItem(task) {
@@ -2219,9 +2264,74 @@ function renderScheduleItem(task) {
           </div>
         ` : ""}
       </div>
-      <span class="point-pill">+${task.points}</span>
+      <div class="schedule-item-actions">
+        <span class="point-pill">+${task.points}</span>
+        ${task.custom ? `<button class="ghost-button danger compact-button" data-delete-custom-task="${task.id}" type="button">删除</button>` : ""}
+      </div>
     </div>
   `;
+}
+
+function addCustomTask(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const name = String(formData.get("name") || "").trim();
+  const type = String(formData.get("type") || "study");
+  const points = Math.max(0, Number(formData.get("points") || 1));
+  const weekdays = normalizeWeekdays(formData.getAll("weekdays"));
+  const start = String(formData.get("start") || "18:00");
+  const end = String(formData.get("end") || "19:00");
+
+  if (!name) {
+    toast("请填写任务名称。");
+    return;
+  }
+  if (!weekdays.length) {
+    toast("请至少选择一个日期。");
+    return;
+  }
+  if ((type === "study" || type === "class") && end <= start) {
+    toast("结束时间需要晚于开始时间。");
+    return;
+  }
+
+  const task = {
+    id: `custom-${Date.now().toString(36)}`,
+    name,
+    type,
+    points,
+    bonusLabel: type === "class" ? "老师表扬 +1" : "",
+    custom: true,
+    weekdays,
+  };
+  state.customTasks = normalizeCustomTasks([...(state.customTasks || []), task]);
+  state.schedules[task.id] = [...weekdays];
+  if (type === "study" || type === "class") {
+    state.scheduleTimes[task.id] = { default: { start, end }, byWeekday: {} };
+  }
+  syncTaskCatalog(state.customTasks);
+  form.reset();
+  form.querySelectorAll('input[name="weekdays"]').forEach((input) => {
+    input.checked = [1, 2, 3, 4, 5].includes(Number(input.value));
+  });
+  form.elements.points.value = "1";
+  form.elements.start.value = "18:00";
+  form.elements.end.value = "19:00";
+  toast("已新增计划。");
+  render();
+}
+
+function deleteCustomTask(taskId) {
+  const task = taskById(taskId);
+  if (!task?.custom) return;
+  if (!window.confirm(`确认删除“${task.name}”吗？历史打卡记录会保留，但不会再显示在计划里。`)) return;
+  state.customTasks = normalizeCustomTasks((state.customTasks || []).filter((item) => item.id !== taskId));
+  delete state.schedules[taskId];
+  delete state.scheduleTimes[taskId];
+  syncTaskCatalog(state.customTasks);
+  toast("已删除自定义计划。");
+  render();
 }
 
 function renderScheduleTimeRow(task, weekday) {
@@ -2379,6 +2489,7 @@ function setView(view) {
 function resetData() {
   localStorage.removeItem(STORAGE_KEY);
   state = loadState();
+  syncTaskCatalog(state.customTasks);
   ensureToday();
   toast("体验数据已重置");
   render();

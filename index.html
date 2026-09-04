@@ -167,6 +167,49 @@
               <button id="resetButton" class="ghost-button danger" type="button">重置体验数据</button>
             </div>
             <p class="muted">勾选每个任务一周中出现的日期。每日任务和补课课程可按实际课表调整。</p>
+            <form id="customTaskForm" class="custom-task-form">
+              <div class="custom-task-form-head">
+                <h3>新增任务或补课</h3>
+                <button class="primary-button" type="submit">新增</button>
+              </div>
+              <div class="custom-task-grid">
+                <label>
+                  名称
+                  <input name="name" type="text" placeholder="例如：口算练习" required />
+                </label>
+                <label>
+                  类型
+                  <select name="type">
+                    <option value="study">学习任务</option>
+                    <option value="class">补课课程</option>
+                    <option value="habit">生活习惯</option>
+                    <option value="bonus">加分任务</option>
+                  </select>
+                </label>
+                <label>
+                  积分
+                  <input name="points" type="number" min="0" step="1" value="1" />
+                </label>
+                <label>
+                  开始时间
+                  <input name="start" type="time" value="18:00" />
+                </label>
+                <label>
+                  结束时间
+                  <input name="end" type="time" value="19:00" />
+                </label>
+              </div>
+              <div class="weekday-row custom-task-days" aria-label="每周出现日期">
+                <label><input name="weekdays" type="checkbox" value="0" />周日</label>
+                <label><input name="weekdays" type="checkbox" value="1" checked />周一</label>
+                <label><input name="weekdays" type="checkbox" value="2" checked />周二</label>
+                <label><input name="weekdays" type="checkbox" value="3" checked />周三</label>
+                <label><input name="weekdays" type="checkbox" value="4" checked />周四</label>
+                <label><input name="weekdays" type="checkbox" value="5" checked />周五</label>
+                <label><input name="weekdays" type="checkbox" value="6" />周六</label>
+              </div>
+              <p class="field-hint">学习任务和补课课程会使用开始/结束时间；生活习惯和加分任务只按日期出现。</p>
+            </form>
             <div id="scheduleEditor" class="schedule-editor"></div>
           </section>
           <section class="settings-panel">
@@ -199,6 +242,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="./firebase-config.js?v=20260523-1"></script>
-    <script src="./app.js?v=20260904-6"></script>
+    <script src="./app.js?v=20260904-7"></script>
   </body>
 </html>
