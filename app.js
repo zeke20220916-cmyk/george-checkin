@@ -728,9 +728,6 @@ function renderWeekGantt() {
     return summary;
   }, { tasks: 0, done: 0, study: 0 });
   const completion = totals.tasks ? Math.round((totals.done / totals.tasks) * 100) : 100;
-  const weekdayDates = weekDates.filter((dateKey) => !isWeekend(dateKey));
-  const weekendDates = weekDates.filter(isWeekend);
-
   elements.weekGanttPanel.innerHTML = `
     <div class="week-gantt-summary">
       <article>
@@ -747,8 +744,7 @@ function renderWeekGantt() {
       </article>
     </div>
     ${renderRoutineOverview()}
-    ${renderWeekGanttBoard("周一至周五", weekdayDates, { start: 14, end: 22, ticks: [14, 16, 18, 20, 22] })}
-    ${renderWeekGanttBoard("周末", weekendDates, { start: 8, end: 22, ticks: [8, 12, 16, 20, 22] })}
+    ${renderWeekCalendar(weekDates)}
     <div class="week-gantt-legend">
       <span><i class="legend-dot study"></i>学习</span>
       <span><i class="legend-dot habit"></i>固定例行</span>
@@ -785,82 +781,82 @@ function renderRoutineOverview() {
   `;
 }
 
-function renderWeekGanttBoard(title, dates, timeline) {
+function renderWeekCalendar(dates) {
+  const timeline = { start: 8, end: 22, ticks: [8, 12, 16, 20, 22] };
   return `
-    <section class="week-schedule-section">
-      <h3>${title}</h3>
-      <div class="week-gantt-board">
-        <div class="week-gantt-head">
-          <span>日期</span>
-          <span class="timeline-scale" aria-label="学习时间刻度">
-            ${timeline.ticks.map((hour) => `<i style="left: ${((hour - timeline.start) / (timeline.end - timeline.start)) * 100}%">${String(hour).padStart(2, "0")}:00</i>`).join("")}
-          </span>
-          <span>进度</span>
+    <section class="week-calendar-shell" aria-label="本周学习周历">
+      <div class="week-calendar-scroll">
+        <div class="week-calendar-head">
+          <span class="week-calendar-corner">时间</span>
+          ${dates.map(renderWeekCalendarHeader).join("")}
         </div>
-        ${dates.map((dateKey) => renderWeekGanttDay(dateKey, timeline)).join("")}
+        <div class="week-calendar-body">
+          ${renderWeekCalendarTimeScale(timeline)}
+          ${dates.map((dateKey, index) => renderWeekCalendarDay(dateKey, index, timeline)).join("")}
+        </div>
       </div>
     </section>
   `;
 }
 
-function renderWeekGanttDay(dateKey, timeline) {
+function renderWeekCalendarHeader(dateKey) {
   const date = parseDateKey(dateKey);
-  const tasks = tasksForDate(dateKey).filter((task) => task.type !== "class");
-  const studyTasks = tasks.filter((task) => task.type === "study");
-  const habitTasks = tasks.filter((task) => task.type === "habit");
-  const bonusTasks = tasks.filter((task) => task.type === "bonus");
-  const studyDone = studyTasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
-  const habitDone = habitTasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
-  const bonusDone = bonusTasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
+  const tasks = tasksForDate(dateKey).filter((task) => task.type === "study");
   const done = tasks.filter((task) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
-  const completion = tasks.length ? Math.round((done / tasks.length) * 100) : 100;
   const isToday = dateKey === todayKey;
-  const dayState = isToday ? "today" : dateKey > todayKey ? "future" : done < tasks.length ? "incomplete-day" : "completed-day";
   const dayLabel = `${WEEKDAYS[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
-
   return `
-    <section class="week-gantt-row ${dayState}">
-      <button class="week-day-button" data-week-date="${dateKey}" type="button">
-        <strong>${dayLabel}</strong>
-        <span>${isToday ? "今天" : ""}</span>
-        <span class="week-day-summary">学习 ${studyDone}/${studyTasks.length} · 例行 ${habitDone}/${habitTasks.length} · 加分 ${bonusDone}/${bonusTasks.length}</span>
-      </button>
-      <div class="study-timeline" aria-label="${escapeAttr(dayLabel)} 学习任务时间轴">
-        ${renderStudyTimeline(dateKey, studyTasks, timeline) || `<span class="week-empty">暂无学习任务</span>`}
-      </div>
-      <div class="week-progress">
-        <strong>${done}/${tasks.length}</strong>
-        <span class="week-progress-track"><i style="width: ${completion}%"></i></span>
-      </div>
+    <button class="week-calendar-day-head ${isToday ? "today" : ""}" data-week-date="${dateKey}" type="button">
+      <strong>${dayLabel}</strong>
+      <span>${isToday ? "今天" : `学习 ${done}/${tasks.length}`}</span>
+    </button>
+  `;
+}
+
+function renderWeekCalendarTimeScale(timeline) {
+  return `
+    <aside class="week-calendar-time-scale" aria-label="学习时间刻度">
+      ${timeline.ticks.map((hour) => `<i style="top: ${((hour - timeline.start) / (timeline.end - timeline.start)) * 100}%">${String(hour).padStart(2, "0")}:00</i>`).join("")}
+    </aside>
+  `;
+}
+
+function renderWeekCalendarDay(dateKey, index, timeline) {
+  const tasks = tasksForDate(dateKey).filter((task) => task.type === "study");
+  const date = parseDateKey(dateKey);
+  const isToday = dateKey === todayKey;
+  const dayState = isToday ? "today" : dateKey > todayKey ? "future" : "history";
+  const dayLabel = `${WEEKDAYS[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
+  const guides = timeline.ticks.map((hour) => `<i class="week-calendar-guide" style="top: ${((hour - timeline.start) / (timeline.end - timeline.start)) * 100}%"></i>`).join("");
+  return `
+    <section class="week-calendar-day ${dayState} ${index % 2 ? "tone-b" : "tone-a"}" aria-label="${escapeAttr(dayLabel)} 学习任务">
+      ${guides}
+      ${renderWeekCalendarTasks(dateKey, tasks, timeline) || `<span class="week-calendar-empty">暂无学习任务</span>`}
     </section>
   `;
 }
 
-function renderStudyTimeline(dateKey, tasks, timeline) {
-  const tracks = [];
-  const guides = timeline.ticks.map((hour) => `<i class="timeline-guide" style="left: ${((hour - timeline.start) / (timeline.end - timeline.start)) * 100}%"></i>`).join("");
-  const items = tasks.map((task) => {
+function renderWeekCalendarTasks(dateKey, tasks, timeline) {
+  const stacks = [];
+  return tasks.map((task) => {
     const slot = taskTimeSlot(task, dateKey, timeline);
-    let track = tracks.findIndex((end) => end <= slot.start);
-    if (track === -1) {
-      track = tracks.length;
-      tracks.push(slot.end);
-    } else {
-      tracks[track] = slot.end;
-    }
-    return renderWeekGanttTask(dateKey, task, slot, track, timeline);
+    const overlapping = stacks.filter((top) => Math.abs(top - slot.start) < 1.2).length;
+    stacks.push(slot.start + overlapping * 0.8);
+    return renderWeekCalendarTask(dateKey, task, slot, overlapping);
   }).join("");
-  return `${guides}${items}`;
 }
 
-function renderWeekGanttTask(dateKey, task, slot, track, timeline) {
+function renderWeekCalendarTask(dateKey, task, slot, stack) {
   const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
   const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "done" : "";
   const palette = taskPalette(task);
+  const durationMinutes = Math.max(15, Math.round((slot.end - slot.start) * 60));
+  const top = (slot.start / slot.hours) * 100;
   return `
-    <span class="week-task ${task.type} ${statusClass}" style="--start: ${slot.start / slot.hours}; --duration: ${(slot.end - slot.start) / slot.hours}; --track: ${track}; --task-today-bg: ${palette.today}; --task-future-bg: ${palette.future}; --task-border: ${palette.border}; --task-ink: ${palette.ink}" title="${escapeAttr(taskTypeText(task.type))} · ${escapeAttr(statusText(record.status, task.type))}">
-      ${escapeHtml(displayTaskName(task, record))}
-    </span>
+    <article class="week-calendar-task ${statusClass}" style="--top: ${top}%; --stack: ${stack}; --task-today-bg: ${palette.today}; --task-future-bg: ${palette.future}; --task-border: ${palette.border}; --task-ink: ${palette.ink}" title="${escapeAttr(taskTypeText(task.type))} · ${escapeAttr(statusText(record.status, task.type))}">
+      <strong>${escapeHtml(displayTaskName(task, record))}</strong>
+      <span>${durationMinutes} 分钟</span>
+    </article>
   `;
 }
 
@@ -877,11 +873,6 @@ function taskPalette(task) {
     "chinese-reading": { today: "#d7edf5", future: "#eaf7fb", border: "#519cb6", ink: "#24667d" },
     "english-reading": { today: "#e0e4fb", future: "#f0f2ff", border: "#7181c7", ink: "#3f4e95" },
   }[task.id] || { today: "#e1e8e4", future: "#f0f5f2", border: "#92a39a", ink: "#455149" };
-}
-
-function isWeekend(dateKey) {
-  const weekday = parseDateKey(dateKey).getDay();
-  return weekday === 0 || weekday === 6;
 }
 
 function defaultTaskTime(task) {
