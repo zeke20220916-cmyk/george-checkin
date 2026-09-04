@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>George 的成长计划 2.0</title>
-    <link rel="stylesheet" href="./styles.css?v=20260904-2" />
+    <link rel="stylesheet" href="./styles.css?v=20260904-3" />
   </head>
   <body>
     <main class="app-shell">
@@ -13,43 +13,15 @@
           <h1>George 的成长计划 2.0</h1>
         </div>
         <nav class="tabs" aria-label="主导航">
-          <button class="tab-button active" data-view="overview" type="button">总体展示</button>
-          <button class="tab-button" data-view="daily" type="button">每日任务</button>
-          <button class="tab-button" data-view="makeup" type="button">补课课表</button>
-          <button class="tab-button" data-view="checkin" type="button">打卡</button>
-          <button class="tab-button" data-view="stats" type="button">数据分析</button>
-          <button class="tab-button" data-view="settings" type="button">设置</button>
+          <button class="tab-button active" data-view="overview" type="button"><i data-lucide="layout-dashboard"></i><span>总体展示</span></button>
+          <button class="tab-button" data-view="daily" type="button"><i data-lucide="calendar-days"></i><span>每日任务</span></button>
+          <button class="tab-button" data-view="makeup" type="button"><i data-lucide="book-open"></i><span>补课课表</span></button>
+          <button class="tab-button" data-view="checkin" type="button"><i data-lucide="circle-check"></i><span>打卡</span></button>
+          <button class="tab-button" data-view="stats" type="button"><i data-lucide="chart-column"></i><span>数据分析</span></button>
+          <button class="tab-button" data-view="settings" type="button"><i data-lucide="settings"></i><span>设置</span></button>
         </nav>
-        <button id="todayTitle" class="date-title" type="button">今日打卡</button>
+        <button id="todayTitle" class="date-title" type="button"><i data-lucide="calendar-days"></i><span>今日打卡</span></button>
       </header>
-
-      <section class="status-board" aria-label="今日状态">
-        <div class="status-main">
-          <p class="kicker">本周学习概况</p>
-          <p id="profileLine" class="profile-line">George · 成长任务新手</p>
-        </div>
-        <div class="status-metrics">
-          <article class="metric-card primary">
-            <span>当前积分</span>
-            <strong id="totalPoints">0</strong>
-          </article>
-          <article class="metric-card">
-            <span>预计今日</span>
-            <strong id="estimatedPoints">0</strong>
-            <p>待晚间确认</p>
-          </article>
-          <article class="metric-card">
-            <span>连续达标</span>
-            <strong id="streakDays">0 天</strong>
-            <p id="multiplierText">今日倍率 1.0 倍</p>
-          </article>
-          <article id="climbingCard" class="metric-card wide clickable-card" tabindex="0" role="button">
-            <span>攀岩课资格</span>
-            <strong id="climbingStatus">0 / 0</strong>
-            <p id="climbingHint">本周学习任务统计中</p>
-          </article>
-        </div>
-      </section>
 
       <section id="treasureBanner" class="treasure-banner hidden" aria-live="polite">
         今天有神秘宝箱，晚上结算揭晓。
@@ -62,6 +34,33 @@
             <p>汇总今日、本周和长期的完成情况。</p>
           </div>
         </div>
+        <section class="status-board overview-status" aria-label="今日状态">
+          <div class="status-main">
+            <p class="kicker">本周学习概况</p>
+            <p id="profileLine" class="profile-line">George · 成长任务新手</p>
+          </div>
+          <div class="status-metrics">
+            <article class="metric-card primary">
+              <span>当前积分</span>
+              <strong id="totalPoints">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>预计今日</span>
+              <strong id="estimatedPoints">0</strong>
+              <p>待晚间确认</p>
+            </article>
+            <article class="metric-card">
+              <span>连续达标</span>
+              <strong id="streakDays">0 天</strong>
+              <p id="multiplierText">今日倍率 1.0 倍</p>
+            </article>
+            <article id="climbingCard" class="metric-card wide clickable-card" tabindex="0" role="button">
+              <span>攀岩课资格</span>
+              <strong id="climbingStatus">0 / 0</strong>
+              <p id="climbingHint">本周学习任务统计中</p>
+            </article>
+          </div>
+        </section>
         <div id="overviewPanel" class="overview-panel"></div>
       </section>
 
@@ -198,7 +197,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="./firebase-config.js?v=20260523-1"></script>
-    <script src="./app.js?v=20260904-2"></script>
+    <script src="./app.js?v=20260904-3"></script>
   </body>
 </html>

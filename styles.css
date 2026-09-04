@@ -87,6 +87,9 @@ h1 {
 }
 
 .date-title {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
   width: fit-content;
   justify-self: end;
   margin: 0;
@@ -226,6 +229,10 @@ h3 {
 }
 
 .tab-button {
+  display: inline-flex;
+  justify-content: center;
+  gap: 7px;
+  align-items: center;
   min-height: 48px;
   border: 0;
   border-bottom: 3px solid transparent;
@@ -233,6 +240,13 @@ h3 {
   color: var(--muted);
   background: transparent;
   font-weight: 900;
+}
+
+.tab-button svg,
+.date-title svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.25;
 }
 
 .tab-button.active {
@@ -378,97 +392,178 @@ h3 {
   min-width: 190px;
 }
 
-.makeup-timetable {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
-  gap: 10px;
+.makeup-month-shell {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
-.makeup-time-scale {
-  position: relative;
-  height: 552px;
-  margin-top: 48px;
+.makeup-month-header {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.makeup-month-header h3 {
+  min-width: 160px;
+  margin: 0;
+  text-align: center;
+}
+
+.month-nav-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fff;
+}
+
+.month-nav-button:hover,
+.month-nav-button:focus-visible {
+  border-color: var(--blue);
+  color: var(--blue);
+  outline: none;
+}
+
+.month-nav-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.makeup-month-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.makeup-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(126px, 1fr));
+  min-width: 882px;
+}
+
+.makeup-month-weekday {
+  display: grid;
+  min-height: 42px;
+  place-items: center;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
-}
-
-.makeup-time-scale i {
-  position: absolute;
-  right: 0;
-  transform: translateY(-50%);
-  font-style: normal;
-}
-
-.makeup-time-scale i:first-child {
-  transform: none;
-}
-
-.makeup-time-scale i:last-child {
-  transform: translateY(-100%);
-}
-
-.makeup-week {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.makeup-day {
-  display: grid;
-  align-content: start;
-  min-height: 600px;
-  overflow: hidden;
-  box-shadow: 0 8px 22px rgba(28, 48, 39, 0.08);
-}
-
-.makeup-day.today {
-  border-color: var(--blue);
-}
-
-.makeup-day-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: center;
-  min-height: 48px;
-  padding: 0 12px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  color: var(--ink);
   background: #fbfdfc;
+}
+
+.makeup-month-day,
+.makeup-month-empty {
+  min-height: 132px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.makeup-month-empty {
+  background: #fafcfb;
+}
+
+.makeup-month-day {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  padding: 8px;
+  background: #fff;
+}
+
+.makeup-month-day.today {
+  box-shadow: inset 0 0 0 2px var(--blue);
+}
+
+.makeup-month-date {
+  justify-self: start;
+  min-width: 28px;
+  min-height: 26px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--ink);
+  background: transparent;
   font-weight: 900;
 }
 
-.makeup-course-list {
-  position: relative;
-  min-height: 552px;
-  padding: 10px;
-  background-image: linear-gradient(to bottom, rgba(104, 124, 114, 0.14) 1px, transparent 1px);
-  background-size: 100% 14.285714286%;
+.makeup-month-date:hover,
+.makeup-month-date:focus-visible {
+  color: var(--blue);
+  background: #f0f6ff;
+  outline: none;
 }
 
-.makeup-course {
-  position: absolute;
-  top: calc(10px + (100% - 20px) * var(--start) / 14);
-  left: 10px;
-  width: calc(100% - 20px);
-  min-height: max(82px, calc((100% - 20px) * var(--duration) / 14));
+.makeup-month-day.today .makeup-month-date {
+  color: #fff;
+  background: var(--blue);
+}
+
+.makeup-month-course-list {
   display: grid;
-  gap: 10px;
-  padding: 10px;
-  border-color: #cfd8d3;
-  background: #e9eeeb;
-  box-shadow: none;
+  gap: 5px;
 }
 
-.makeup-course.done {
+.makeup-month-course {
+  display: grid;
+  gap: 2px;
+  padding: 6px 7px;
+  overflow: hidden;
+  border: 1px solid #c7d1cb;
+  border-radius: 6px;
+  color: #455149;
+  background: #e3e8e5;
+}
+
+.makeup-month-course strong,
+.makeup-month-course span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.makeup-month-course strong {
+  font-size: 12px;
+}
+
+.makeup-month-course span {
+  font-size: 10px;
+  font-weight: 900;
+  opacity: 0.8;
+}
+
+.makeup-month-day.today .makeup-month-course:not(.done):not(.excellent) {
+  border-color: var(--task-border);
+  color: var(--task-ink);
+  background: var(--task-today-bg);
+}
+
+.makeup-month-day.future .makeup-month-course:not(.done):not(.excellent) {
+  border-color: var(--task-border);
+  color: var(--task-ink);
+  background: var(--task-future-bg);
+}
+
+.makeup-month-course.done {
   border-color: #b9ddc4;
+  color: #28623f;
   background: #ddf2e4;
 }
 
-.makeup-course.excellent {
+.makeup-month-course.excellent {
   border-color: #9ed3ae;
+  color: #155c35;
   background: #c6eacf;
 }
 
@@ -546,8 +641,7 @@ h3 {
 
 .routine-overview {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 16px;
+  gap: 12px;
   align-items: start;
   padding: 14px;
   border: 1px solid var(--line);
@@ -556,13 +650,12 @@ h3 {
   box-shadow: var(--shadow);
 }
 
-.routine-overview > div:first-child {
+.routine-overview-heading {
   display: grid;
   gap: 5px;
 }
 
-.routine-overview > div:first-child span,
-.routine-group span {
+.routine-overview-heading span {
   color: var(--muted);
   font-size: 13px;
   font-weight: 900;
@@ -571,14 +664,45 @@ h3 {
 
 .routine-group-list {
   display: grid;
-  gap: 8px;
+  grid-template-columns: 1fr 0.85fr 1.55fr;
+  gap: 12px;
 }
 
 .routine-group {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   align-items: start;
+}
+
+.routine-task-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.routine-task-card {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid #b8cef1;
+  border-radius: 6px;
+  color: #26558d;
+  background: #eef5ff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.routine-group.sleep .routine-task-card {
+  border-color: #d2c3f3;
+  color: #684c9a;
+  background: #f5f0ff;
+}
+
+.routine-group.bonus .routine-task-card {
+  border-color: #f2cc83;
+  color: #985f0a;
+  background: #fff8e8;
 }
 
 .week-calendar-shell {
@@ -1754,7 +1878,6 @@ code {
   .status-metrics,
   .overview-grid,
   .overview-split,
-  .makeup-week,
   .week-gantt-summary,
   .task-grid,
   .reward-grid,
@@ -1767,33 +1890,12 @@ code {
     grid-template-columns: 1fr;
   }
 
-  .makeup-timetable {
-    grid-template-columns: 1fr;
-  }
-
-  .makeup-time-scale {
-    display: none;
-  }
-
-  .makeup-day {
-    min-height: auto;
-  }
-
-  .makeup-course-list {
-    display: grid;
-    gap: 8px;
-    min-height: auto;
-    background-image: none;
-  }
-
-  .makeup-course {
-    position: static;
-    width: auto;
-    min-height: 0;
-  }
-
   .tabs {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .routine-group-list {
+    grid-template-columns: 1fr;
   }
 }
 

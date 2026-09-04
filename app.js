@@ -4,6 +4,7 @@ const today = new Date();
 const todayKey = toDateKey(today);
 let selectedHistoryDate = todayKey;
 let selectedCheckinDate = todayKey;
+let selectedMakeupMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 let statsRange = "week";
 
 const TASKS = [
@@ -107,7 +108,8 @@ const cloud = {
   unsubscribe: null,
 };
 
-elements.todayTitle.textContent = `${today.getMonth() + 1} 月 ${today.getDate()} 日 ${WEEKDAYS[today.getDay()]}`;
+elements.todayTitle.querySelector("span").textContent = `${today.getMonth() + 1} 月 ${today.getDate()} 日 ${WEEKDAYS[today.getDay()]}`;
+window.lucide?.createIcons({ attrs: { "aria-hidden": "true" } });
 elements.todayTitle.addEventListener("click", () => {
   selectedCheckinDate = todayKey;
   setView("checkin");
@@ -765,16 +767,21 @@ function renderWeekGantt() {
 
 function renderRoutineOverview() {
   const groups = [
-    { title: "回家后", taskIds: ["hand-wash", "fold-clothes", "slippers", "desk-bag"] },
-    { title: "睡前", taskIds: ["sleep-routine", "prepare-clothes"] },
-    { title: "可选加分", taskIds: ["diary", "mistake-book", "help-family", "extra-reading", "clean-meal", "make-bed", "other-bonus"] },
+    { title: "回家后", tone: "home", taskIds: ["hand-wash", "fold-clothes", "slippers", "desk-bag"] },
+    { title: "睡前", tone: "sleep", taskIds: ["sleep-routine", "prepare-clothes"] },
+    { title: "可选加分", tone: "bonus", taskIds: ["diary", "mistake-book", "help-family", "extra-reading", "clean-meal", "make-bed", "other-bonus"] },
   ];
   return `
     <section class="routine-overview">
-      <div><strong>固定例行</strong><span>每天按场景提示，具体完成情况在日期摘要和打卡页查看。</span></div>
+      <div class="routine-overview-heading"><strong>固定例行</strong><span>每天按场景完成，具体打卡在日期详情中确认。</span></div>
       <div class="routine-group-list">
         ${groups.map((group) => `
-          <div class="routine-group"><strong>${group.title}</strong><span>${group.taskIds.map((id) => escapeHtml(taskById(id).name)).join(" · ")}</span></div>
+          <section class="routine-group ${group.tone}">
+            <strong>${group.title}</strong>
+            <div class="routine-task-list">
+              ${group.taskIds.map((id) => `<span class="routine-task-card">${escapeHtml(taskById(id).name)}</span>`).join("")}
+            </div>
+          </section>
         `).join("")}
       </div>
     </section>
@@ -854,6 +861,10 @@ function taskPalette(task) {
     "chinese-practice": { today: "#f7d9d5", future: "#fcebe9", border: "#c66d63", ink: "#8e3b34" },
     "chinese-reading": { today: "#d7edf5", future: "#eaf7fb", border: "#519cb6", ink: "#24667d" },
     "english-reading": { today: "#e0e4fb", future: "#f0f2ff", border: "#7181c7", ink: "#3f4e95" },
+    "english-class": { today: "#dbeaff", future: "#edf5ff", border: "#6d9fdf", ink: "#174e99" },
+    "math-class": { today: "#e7dcfb", future: "#f3edff", border: "#9a78cc", ink: "#62428f" },
+    "piano-class": { today: "#f8dbe8", future: "#fcecf3", border: "#c66d99", ink: "#8c315e" },
+    "go-class": { today: "#d7ece0", future: "#e9f6ee", border: "#5d9c72", ink: "#2c6641" },
   }[task.id] || { today: "#e1e8e4", future: "#f0f5f2", border: "#92a39a", ink: "#455149" };
 }
 
@@ -921,13 +932,13 @@ function clampTimeToTimeline(value, timeline) {
 
 function renderMakeupSchedule() {
   if (!elements.makeupPanel) return;
-  const weekDates = currentWeekDates();
-  const classTasks = weekDates.flatMap((dateKey) => tasksForDate(dateKey).filter((task) => task.type === "class").map((task) => ({ dateKey, task })));
+  const monthDates = datesInMonth(selectedMakeupMonth);
+  const classTasks = monthDates.flatMap((dateKey) => tasksForDate(dateKey).filter((task) => task.type === "class").map((task) => ({ dateKey, task })));
   const done = classTasks.filter(({ dateKey, task }) => isDone(state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task))).length;
   elements.makeupPanel.innerHTML = `
     <div class="week-gantt-summary">
       <article>
-        <span>本周课程</span>
+        <span>本月课程</span>
         <strong>${classTasks.length} 节</strong>
       </article>
       <article>
@@ -939,15 +950,27 @@ function renderMakeupSchedule() {
         <strong>${classTasks.length ? Math.round((done / classTasks.length) * 100) : 100}%</strong>
       </article>
     </div>
-    <div class="makeup-timetable">
-      <aside class="makeup-time-scale" aria-label="课程时间刻度">
-        ${renderMakeupTimeScale()}
-      </aside>
-      <div class="makeup-week">
-        ${weekDates.map(renderMakeupDay).join("")}
+    <section class="makeup-month-shell" aria-label="${selectedMakeupMonth.getFullYear()} 年 ${selectedMakeupMonth.getMonth() + 1} 月补课课表">
+      <div class="makeup-month-header">
+        <button class="month-nav-button" data-makeup-month="-1" type="button" title="上个月" aria-label="上个月"><i data-lucide="chevron-left"></i></button>
+        <h3>${selectedMakeupMonth.getFullYear()} 年 ${selectedMakeupMonth.getMonth() + 1} 月</h3>
+        <button class="month-nav-button" data-makeup-month="1" type="button" title="下个月" aria-label="下个月"><i data-lucide="chevron-right"></i></button>
       </div>
-    </div>
+      <div class="makeup-month-scroll">
+        <div class="makeup-month-grid">
+          ${WEEKDAYS.map((day) => `<span class="makeup-month-weekday">${day}</span>`).join("")}
+          ${renderMakeupMonthDays().join("")}
+        </div>
+      </div>
+    </section>
   `;
+  window.lucide?.createIcons({ attrs: { "aria-hidden": "true" } });
+  elements.makeupPanel.querySelectorAll("[data-makeup-month]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedMakeupMonth = new Date(selectedMakeupMonth.getFullYear(), selectedMakeupMonth.getMonth() + Number(button.dataset.makeupMonth), 1);
+      renderMakeupSchedule();
+    });
+  });
   elements.makeupPanel.querySelectorAll("[data-makeup-date]").forEach((button) => {
     button.addEventListener("click", () => {
       selectedCheckinDate = button.dataset.makeupDate;
@@ -956,49 +979,53 @@ function renderMakeupSchedule() {
       renderSettlement();
     });
   });
-  elements.makeupPanel.querySelectorAll("[data-makeup-status]").forEach((button) => {
-    button.addEventListener("click", () => setTaskStatusForDate(button.dataset.date, button.dataset.task, button.dataset.makeupStatus));
-  });
 }
 
-function renderMakeupTimeScale() {
-  return [8, 10, 12, 14, 16, 18, 20, 22].map((hour, index) => `
-    <i style="top: ${(index / 7) * 100}%">${String(hour).padStart(2, "0")}:00</i>
-  `).join("");
+function datesInMonth(month) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const days = new Date(year, monthIndex + 1, 0).getDate();
+  return Array.from({ length: days }, (_, index) => toDateKey(new Date(year, monthIndex, index + 1)));
 }
 
-function renderMakeupDay(dateKey) {
+function renderMakeupMonthDays() {
+  const year = selectedMakeupMonth.getFullYear();
+  const month = selectedMakeupMonth.getMonth();
+  const leadingDays = new Date(year, month, 1).getDay();
+  const days = datesInMonth(selectedMakeupMonth);
+  const trailingDays = (7 - ((leadingDays + days.length) % 7)) % 7;
+  return [
+    ...Array.from({ length: leadingDays }, () => `<span class="makeup-month-empty" aria-hidden="true"></span>`),
+    ...days.map(renderMakeupMonthDay),
+    ...Array.from({ length: trailingDays }, () => `<span class="makeup-month-empty" aria-hidden="true"></span>`),
+  ];
+}
+
+function renderMakeupMonthDay(dateKey) {
   const date = parseDateKey(dateKey);
-  const classes = tasksForDate(dateKey).filter((task) => task.type === "class");
+  const classes = tasksForDate(dateKey)
+    .filter((task) => task.type === "class")
+    .sort((a, b) => taskTimeForWeekday(a, date.getDay()).start.localeCompare(taskTimeForWeekday(b, date.getDay()).start));
+  const dayState = dateKey === todayKey ? "today" : dateKey > todayKey ? "future" : "history";
   return `
-    <section class="makeup-day ${dateKey === todayKey ? "today" : ""}">
-      <button class="makeup-day-title" data-makeup-date="${dateKey}" type="button">
-        <strong>${WEEKDAYS[date.getDay()]}</strong>
-        <span>${date.getMonth() + 1}/${date.getDate()}</span>
-      </button>
-      <div class="makeup-course-list">
-        ${classes.length ? classes.map((task) => renderMakeupCourse(dateKey, task)).join("") : `<p class="muted">无补课课程</p>`}
+    <section class="makeup-month-day ${dayState}">
+      <button class="makeup-month-date" data-makeup-date="${dateKey}" type="button">${date.getDate()}</button>
+      <div class="makeup-month-course-list">
+        ${classes.map((task) => renderMakeupMonthCourse(dateKey, task)).join("")}
       </div>
     </section>
   `;
 }
 
-function renderMakeupCourse(dateKey, task) {
+function renderMakeupMonthCourse(dateKey, task) {
   const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
-  const done = isDone(record);
-  const statusClass = record.status === "excellent" ? "excellent" : done ? "done" : "pending";
+  const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "done" : "";
   const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
-  const slot = taskTimeSlot(task, dateKey);
+  const palette = taskPalette(task);
   return `
-    <article class="makeup-course ${statusClass}" style="--start: ${slot.start}; --duration: ${slot.end - slot.start}">
-      <div>
-        <strong>${escapeHtml(task.name)}</strong>
-        <p>${time.start}-${time.end} · ${statusText(record.status, task.type)}</p>
-      </div>
-      <div class="segmented">
-        <button class="action-button ${record.status === "completed" ? "active done" : ""}" data-date="${dateKey}" data-task="${task.id}" data-makeup-status="completed" type="button">参加</button>
-        <button class="action-button ${record.status === "excellent" ? "active excellent" : ""}" data-date="${dateKey}" data-task="${task.id}" data-makeup-status="excellent" type="button">表扬</button>
-      </div>
+    <article class="makeup-month-course ${statusClass}" style="--task-today-bg: ${palette.today}; --task-future-bg: ${palette.future}; --task-border: ${palette.border}; --task-ink: ${palette.ink}">
+      <strong>${escapeHtml(task.name)}</strong>
+      <span>${time.start} 至 ${time.end}</span>
     </article>
   `;
 }
