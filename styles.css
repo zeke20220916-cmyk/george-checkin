@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  --bg: #f4f7f6;
+  --bg: #f5f8f7;
   --surface: #ffffff;
   --surface-soft: #eef5f1;
   --ink: #17221d;
@@ -11,7 +11,7 @@
   --amber: #d8891c;
   --red: #d14d45;
   --purple: #7557c9;
-  --shadow: 0 16px 42px rgba(28, 48, 39, 0.12);
+  --shadow: 0 8px 22px rgba(28, 48, 39, 0.08);
   font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
 }
 
@@ -39,9 +39,9 @@ button {
 }
 
 .app-shell {
-  width: min(1180px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 26px;
+  padding: 18px 26px 32px;
 }
 
 .kicker,
@@ -67,21 +67,36 @@ p {
 }
 
 h1 {
-  margin-bottom: 6px;
-  font-size: clamp(30px, 4vw, 48px);
+  margin: 0;
+  font-size: 25px;
   letter-spacing: 0;
+}
+
+.app-topbar {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.85fr) minmax(560px, 1.8fr) minmax(150px, auto);
+  gap: 20px;
+  align-items: center;
+  min-height: 58px;
+  padding: 0 4px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.app-brand {
+  min-width: 0;
 }
 
 .date-title {
   width: fit-content;
-  margin: 0 0 6px;
+  justify-self: end;
+  margin: 0;
   padding: 0;
   border: 0;
   color: var(--ink);
   background: transparent;
-  font-size: clamp(30px, 4vw, 48px);
+  font-size: 15px;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1.3;
   letter-spacing: 0;
   text-align: left;
 }
@@ -102,7 +117,7 @@ h3 {
 
 .profile-line {
   margin: 0;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 900;
 }
 
@@ -124,10 +139,11 @@ h3 {
 
 .status-board {
   display: grid;
-  grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1.7fr);
-  gap: 16px;
+  grid-template-columns: minmax(190px, 0.62fr) minmax(0, 1.9fr);
+  gap: 14px;
   align-items: stretch;
-  padding: 18px;
+  margin: 14px 0 20px;
+  padding: 12px;
 }
 
 .status-main {
@@ -142,8 +158,8 @@ h3 {
 }
 
 .metric-card {
-  min-height: 112px;
-  padding: 14px;
+  min-height: 88px;
+  padding: 12px;
   box-shadow: none;
 }
 
@@ -155,8 +171,8 @@ h3 {
 
 .metric-card strong {
   display: block;
-  margin: 8px 0 6px;
-  font-size: 30px;
+  margin: 6px 0 4px;
+  font-size: 26px;
   line-height: 1.05;
 }
 
@@ -205,23 +221,31 @@ h3 {
 .tabs {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 9px;
-  margin: 16px 0 18px;
+  gap: 2px;
+  margin: 0;
 }
 
 .tab-button {
-  min-height: 50px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--ink);
-  background: var(--surface);
+  min-height: 48px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  background: transparent;
   font-weight: 900;
 }
 
 .tab-button.active {
-  color: #fff;
+  color: var(--blue);
   border-color: var(--blue);
-  background: var(--blue);
+  background: #f4f8ff;
+}
+
+.tab-button:hover,
+.tab-button:focus-visible {
+  color: var(--blue);
+  background: #f4f8ff;
+  outline: none;
 }
 
 .overview-panel,
@@ -565,6 +589,16 @@ h3 {
   box-shadow: 0 8px 22px rgba(28, 48, 39, 0.08);
 }
 
+.week-calendar-section {
+  display: grid;
+  gap: 8px;
+}
+
+.week-calendar-section h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
 .week-calendar-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -573,8 +607,8 @@ h3 {
 .week-calendar-head,
 .week-calendar-body {
   display: grid;
-  grid-template-columns: 72px repeat(7, minmax(120px, 1fr));
-  min-width: 940px;
+  grid-template-columns: 72px repeat(var(--calendar-days), minmax(var(--calendar-column-width), 1fr));
+  min-width: var(--calendar-min-width);
 }
 
 .week-calendar-head {
@@ -623,13 +657,13 @@ h3 {
 }
 
 .week-calendar-body {
-  min-height: 560px;
+  min-height: var(--calendar-height);
 }
 
 .week-calendar-time-scale,
 .week-calendar-day {
   position: relative;
-  min-height: 560px;
+  min-height: var(--calendar-height);
 }
 
 .week-calendar-time-scale {
@@ -697,7 +731,7 @@ h3 {
 
 .week-calendar-task {
   position: absolute;
-  top: calc(var(--top) + var(--stack) * 58px);
+  top: min(calc(var(--top) + var(--stack) * 58px), calc(100% - 60px));
   right: 8px;
   left: 8px;
   z-index: 1;
@@ -1171,12 +1205,18 @@ textarea {
   justify-content: space-between;
   gap: 14px;
   align-items: flex-end;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.section-heading h2 {
+  margin-bottom: 5px;
+  font-size: 25px;
 }
 
 .section-heading p {
   margin-bottom: 0;
   color: var(--muted);
+  font-weight: 800;
 }
 
 .section-heading.compact {
@@ -1763,6 +1803,16 @@ code {
 }
 
 @media (max-width: 920px) {
+  .app-topbar {
+    grid-template-columns: 1fr auto;
+    gap: 6px 14px;
+  }
+
+  .app-topbar .tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .status-board,
   .status-metrics,
   .overview-grid,
@@ -1813,6 +1863,19 @@ code {
 @media (max-width: 620px) {
   .app-shell {
     padding: 16px;
+  }
+
+  .app-topbar {
+    grid-template-columns: 1fr;
+    padding-bottom: 10px;
+  }
+
+  .date-title {
+    justify-self: start;
+  }
+
+  .app-topbar .tabs {
+    grid-row: auto;
   }
 
   .section-heading,

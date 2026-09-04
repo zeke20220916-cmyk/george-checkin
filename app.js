@@ -782,17 +782,36 @@ function renderRoutineOverview() {
 }
 
 function renderWeekCalendar(dates) {
-  const timeline = { start: 8, end: 22, ticks: [8, 12, 16, 20, 22] };
+  const weekdayDates = dates.filter((dateKey) => {
+    const weekday = parseDateKey(dateKey).getDay();
+    return weekday >= 1 && weekday <= 5;
+  });
+  const weekendDates = dates.filter((dateKey) => {
+    const weekday = parseDateKey(dateKey).getDay();
+    return weekday === 0 || weekday === 6;
+  });
   return `
-    <section class="week-calendar-shell" aria-label="本周学习周历">
-      <div class="week-calendar-scroll">
-        <div class="week-calendar-head">
-          <span class="week-calendar-corner">时间</span>
-          ${dates.map(renderWeekCalendarHeader).join("")}
-        </div>
-        <div class="week-calendar-body">
-          ${renderWeekCalendarTimeScale(timeline)}
-          ${dates.map((dateKey, index) => renderWeekCalendarDay(dateKey, index, timeline)).join("")}
+    ${renderWeekCalendarSection("周一至周五 · 晚间学习", weekdayDates, { start: 18, end: 22, ticks: [18, 19, 20, 21, 22], height: 330, columnWidth: 152 })}
+    ${renderWeekCalendarSection("周末 · 全天学习", weekendDates, { start: 8, end: 22, ticks: [8, 10, 12, 14, 16, 18, 20, 22], height: 560, columnWidth: 260 })}
+  `;
+}
+
+function renderWeekCalendarSection(title, dates, timeline) {
+  const minWidth = 72 + dates.length * timeline.columnWidth;
+  const style = `--calendar-days: ${dates.length}; --calendar-column-width: ${timeline.columnWidth}px; --calendar-min-width: ${minWidth}px; --calendar-height: ${timeline.height}px;`;
+  return `
+    <section class="week-calendar-section">
+      <h3>${title}</h3>
+      <div class="week-calendar-shell" aria-label="${escapeAttr(title)}">
+        <div class="week-calendar-scroll">
+          <div class="week-calendar-head" style="${style}">
+            <span class="week-calendar-corner">时间</span>
+            ${dates.map(renderWeekCalendarHeader).join("")}
+          </div>
+          <div class="week-calendar-body" style="${style}">
+            ${renderWeekCalendarTimeScale(timeline)}
+            ${dates.map((dateKey, index) => renderWeekCalendarDay(dateKey, index, timeline)).join("")}
+          </div>
         </div>
       </div>
     </section>
