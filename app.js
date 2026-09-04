@@ -782,35 +782,14 @@ function renderRoutineOverview() {
 }
 
 function renderWeekCalendar(dates) {
-  const weekdayDates = dates.filter((dateKey) => {
-    const weekday = parseDateKey(dateKey).getDay();
-    return weekday >= 1 && weekday <= 5;
-  });
-  const weekendDates = dates.filter((dateKey) => {
-    const weekday = parseDateKey(dateKey).getDay();
-    return weekday === 0 || weekday === 6;
-  });
+  const style = "--calendar-days: 7; --calendar-column-width: 152px; --calendar-min-width: 1064px;";
   return `
-    ${renderWeekCalendarSection("周一至周五 · 晚间学习", weekdayDates, { start: 18, end: 22, ticks: [18, 19, 20, 21, 22], height: 330, columnWidth: 152 })}
-    ${renderWeekCalendarSection("周末 · 全天学习", weekendDates, { start: 8, end: 22, ticks: [8, 10, 12, 14, 16, 18, 20, 22], height: 560, columnWidth: 260 })}
-  `;
-}
-
-function renderWeekCalendarSection(title, dates, timeline) {
-  const minWidth = 72 + dates.length * timeline.columnWidth;
-  const style = `--calendar-days: ${dates.length}; --calendar-column-width: ${timeline.columnWidth}px; --calendar-min-width: ${minWidth}px; --calendar-height: ${timeline.height}px;`;
-  return `
-    <section class="week-calendar-section">
-      <h3>${title}</h3>
-      <div class="week-calendar-shell" aria-label="${escapeAttr(title)}">
+    <section class="week-calendar-section" aria-label="本周学习计划">
+      <div class="week-calendar-shell">
         <div class="week-calendar-scroll">
-          <div class="week-calendar-head" style="${style}">
-            <span class="week-calendar-corner">时间</span>
+          <div class="week-calendar-board" style="${style}">
             ${dates.map(renderWeekCalendarHeader).join("")}
-          </div>
-          <div class="week-calendar-body" style="${style}">
-            ${renderWeekCalendarTimeScale(timeline)}
-            ${dates.map((dateKey, index) => renderWeekCalendarDay(dateKey, index, timeline)).join("")}
+            ${dates.map((dateKey, index) => renderWeekCalendarDay(dateKey, index)).join("")}
           </div>
         </div>
       </div>
@@ -832,49 +811,33 @@ function renderWeekCalendarHeader(dateKey) {
   `;
 }
 
-function renderWeekCalendarTimeScale(timeline) {
-  return `
-    <aside class="week-calendar-time-scale" aria-label="学习时间刻度">
-      ${timeline.ticks.map((hour) => `<i style="top: ${((hour - timeline.start) / (timeline.end - timeline.start)) * 100}%">${String(hour).padStart(2, "0")}:00</i>`).join("")}
-    </aside>
-  `;
-}
-
-function renderWeekCalendarDay(dateKey, index, timeline) {
-  const tasks = tasksForDate(dateKey).filter((task) => task.type === "study");
+function renderWeekCalendarDay(dateKey, index) {
+  const tasks = tasksForDate(dateKey)
+    .filter((task) => task.type === "study")
+    .sort((a, b) => taskTimeForWeekday(a, parseDateKey(dateKey).getDay()).start.localeCompare(taskTimeForWeekday(b, parseDateKey(dateKey).getDay()).start));
   const date = parseDateKey(dateKey);
   const isToday = dateKey === todayKey;
   const dayState = isToday ? "today" : dateKey > todayKey ? "future" : "history";
   const dayLabel = `${WEEKDAYS[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
-  const guides = timeline.ticks.map((hour) => `<i class="week-calendar-guide" style="top: ${((hour - timeline.start) / (timeline.end - timeline.start)) * 100}%"></i>`).join("");
   return `
     <section class="week-calendar-day ${dayState} ${index % 2 ? "tone-b" : "tone-a"}" aria-label="${escapeAttr(dayLabel)} 学习任务">
-      ${guides}
-      ${renderWeekCalendarTasks(dateKey, tasks, timeline) || `<span class="week-calendar-empty">暂无学习任务</span>`}
+      ${tasks.map((task) => renderWeekCalendarTask(dateKey, task)).join("") || `<span class="week-calendar-empty">暂无学习任务</span>`}
     </section>
   `;
 }
 
-function renderWeekCalendarTasks(dateKey, tasks, timeline) {
-  const stacks = [];
-  return tasks.map((task) => {
-    const slot = taskTimeSlot(task, dateKey, timeline);
-    const overlapping = stacks.filter((top) => Math.abs(top - slot.start) < 1.2).length;
-    stacks.push(slot.start + overlapping * 0.8);
-    return renderWeekCalendarTask(dateKey, task, slot, overlapping);
-  }).join("");
-}
-
-function renderWeekCalendarTask(dateKey, task, slot, stack) {
+function renderWeekCalendarTask(dateKey, task) {
   const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
   const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "done" : "";
   const palette = taskPalette(task);
+  const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
+  const slot = taskTimeSlot(task, dateKey, { start: 0, end: 24 });
   const durationMinutes = Math.max(15, Math.round((slot.end - slot.start) * 60));
-  const top = (slot.start / slot.hours) * 100;
   return `
-    <article class="week-calendar-task ${statusClass}" style="--top: ${top}%; --stack: ${stack}; --task-today-bg: ${palette.today}; --task-future-bg: ${palette.future}; --task-border: ${palette.border}; --task-ink: ${palette.ink}" title="${escapeAttr(taskTypeText(task.type))} · ${escapeAttr(statusText(record.status, task.type))}">
+    <article class="week-calendar-task ${statusClass}" style="--task-today-bg: ${palette.today}; --task-future-bg: ${palette.future}; --task-border: ${palette.border}; --task-ink: ${palette.ink}" title="${escapeAttr(taskTypeText(task.type))} · ${escapeAttr(statusText(record.status, task.type))}">
       <strong>${escapeHtml(displayTaskName(task, record))}</strong>
-      <span>${durationMinutes} 分钟</span>
+      <span>${time.start} 至 ${time.end}</span>
+      <span>用时 ${durationMinutes} 分钟</span>
     </article>
   `;
 }
