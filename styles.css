@@ -1849,6 +1849,19 @@ textarea {
   gap: 18px;
 }
 
+.week-task-toolbar {
+  display: inline-grid;
+  grid-template-columns: 36px auto 36px;
+  gap: 10px;
+  align-items: center;
+  width: fit-content;
+}
+
+.week-task-toolbar strong {
+  min-width: 120px;
+  text-align: center;
+}
+
 .custom-task-form {
   display: grid;
   gap: 12px;
@@ -1885,6 +1898,97 @@ textarea {
 
 .custom-task-days {
   margin-top: 0;
+}
+
+.settings-subsection-heading {
+  display: grid;
+  gap: 4px;
+  margin: 18px 0 10px;
+}
+
+.settings-subsection-heading h3,
+.settings-subsection-heading p {
+  margin: 0;
+}
+
+.settings-subsection-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.5;
+}
+
+.date-plan-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.date-plan-panel-head {
+  display: grid;
+  grid-template-columns: 1fr minmax(180px, 240px);
+  gap: 12px;
+  align-items: end;
+}
+
+.date-plan-panel-head h3,
+.date-plan-panel-head p {
+  margin: 0;
+}
+
+.date-plan-panel-head p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.date-plan-task-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.date-plan-task-row {
+  display: grid;
+  grid-template-columns: 74px minmax(150px, 1fr) minmax(104px, 0.55fr) minmax(104px, 0.55fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid #dfe9e3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.date-plan-task-row.header {
+  min-height: auto;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+label.date-plan-task-row {
+  color: var(--ink);
+}
+
+.date-plan-task-row.active {
+  border-color: #b8cef1;
+  background: #f4f8ff;
+}
+
+.date-plan-task-row input[type="checkbox"] {
+  width: auto;
+}
+
+.date-plan-task-row input:disabled {
+  color: #8b9891;
+  background: #eef3f0;
 }
 
 .schedule-item-actions {
@@ -2131,8 +2235,13 @@ code {
   }
 
   .date-plan-form,
-  .date-plan-row {
+  .date-plan-row,
+  .date-plan-panel-head {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .date-plan-task-row {
+    grid-template-columns: 64px minmax(130px, 1fr) minmax(96px, 0.6fr) minmax(96px, 0.6fr);
   }
 }
 
@@ -2212,8 +2321,14 @@ code {
   }
 
   .date-plan-form,
-  .date-plan-row {
+  .date-plan-row,
+  .date-plan-panel-head,
+  .date-plan-task-row {
     grid-template-columns: 1fr;
+  }
+
+  .date-plan-task-row.header {
+    display: none;
   }
 
   .week-gantt-head {
