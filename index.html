@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>George 的成长计划 2.0</title>
-    <link rel="stylesheet" href="./styles.css?v=20260907-3" />
+    <link rel="stylesheet" href="./styles.css?v=20260907-4" />
   </head>
   <body>
     <main class="app-shell">
@@ -190,21 +190,22 @@
                   积分
                   <input name="points" type="number" min="0" step="1" value="1" />
                 </label>
-                <label>
+                <label data-plan-only="true">
                   日期
-                  <input name="date" type="date" required />
+                  <input name="date" type="date" />
                 </label>
-                <label>
+                <label data-plan-only="true">
                   开始时间
                   <input name="start" type="time" value="18:00" />
                 </label>
-                <label>
+                <label data-plan-only="true">
                   结束时间
                   <input name="end" type="time" value="19:00" />
                 </label>
               </div>
-              <p class="field-hint">新增后只会出现在选定日期，不会影响以前或以后同星期的安排。</p>
+              <p class="field-hint" id="customTaskHint">学习任务和补课新增后只会出现在选定日期；生活习惯和加分任务新增后默认每天出现。</p>
             </form>
+            <div id="weeklyTargetEditor" class="weekly-target-panel"></div>
             <div id="dailyPlanEditor" class="date-plan-panel"></div>
             <div id="classPlanEditor" class="date-plan-panel"></div>
             <div class="settings-subsection-heading">
@@ -243,6 +244,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="./firebase-config.js?v=20260523-1"></script>
-    <script src="./app.js?v=20260907-3"></script>
+    <script src="./app.js?v=20260907-4"></script>
   </body>
 </html>
