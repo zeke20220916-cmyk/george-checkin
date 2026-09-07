@@ -2514,7 +2514,8 @@ function setDatePlanInclusion(taskId, dateKey, included) {
   } else {
     state.dateSchedules[taskId] = normalizeDateKeys((state.dateSchedules[taskId] || []).filter((date) => date !== dateKey));
     if (!state.dateSchedules[taskId].length) delete state.dateSchedules[taskId];
-    state.dateExclusions[taskId] = normalizeDateKeys([...(state.dateExclusions[taskId] || []), dateKey]);
+    state.dateExclusions[taskId] = normalizeDateKeys((state.dateExclusions[taskId] || []).filter((date) => date !== dateKey));
+    if (!state.dateExclusions[taskId]?.length) delete state.dateExclusions[taskId];
     if (state.scheduleTimes[taskId]?.byDate) delete state.scheduleTimes[taskId].byDate[dateKey];
     if (state.dateTaskCounts[taskId]?.[dateKey] !== undefined) delete state.dateTaskCounts[taskId][dateKey];
     if (state.dateTaskCounts[taskId] && !Object.keys(state.dateTaskCounts[taskId]).length) delete state.dateTaskCounts[taskId];
@@ -2635,7 +2636,7 @@ function renderScheduleEditor() {
   elements.scheduleEditor.querySelectorAll("[data-schedule]").forEach((input) => {
     input.addEventListener("change", () => {
       const days = [...elements.scheduleEditor.querySelectorAll(`[data-schedule="${input.dataset.schedule}"]:checked`)].map((item) => Number(item.value));
-      state.schedules[input.dataset.schedule] = days;
+      updateWeeklySchedule(input.dataset.schedule, days);
       render();
     });
   });
@@ -2689,6 +2690,15 @@ function renderSimpleTaskCatalog() {
       </div>
     </section>
   `;
+}
+
+function updateWeeklySchedule(taskId, days) {
+  const normalizedDays = normalizeWeekdays(days);
+  state.schedules[taskId] = normalizedDays;
+  if (state.dateExclusions[taskId]?.length) {
+    state.dateExclusions[taskId] = state.dateExclusions[taskId].filter((dateKey) => !normalizedDays.includes(parseDateKey(dateKey).getDay()));
+    if (!state.dateExclusions[taskId].length) delete state.dateExclusions[taskId];
+  }
 }
 
 function renderScheduleItem(task) {
@@ -2805,7 +2815,6 @@ function isScheduled(task, day) {
 
 function isScheduledOnDate(task, dateKey) {
   const day = parseDateKey(dateKey).getDay();
-  if ((state.dateExclusions[task.id] || []).includes(dateKey)) return false;
   return isScheduled(task, day) || (state.dateSchedules[task.id] || []).includes(dateKey);
 }
 
