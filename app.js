@@ -28,6 +28,7 @@ const DEFAULT_TASKS = [
   { id: "sleep-routine", name: "按时洗漱睡觉", type: "habit", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
   { id: "english-class", name: "英语课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [6] },
   { id: "math-class", name: "数学课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [0] },
+  { id: "chinese-class", name: "语文课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [] },
   { id: "piano-class", name: "钢琴课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [5] },
   { id: "go-class", name: "围棋课", type: "class", points: 1, bonusLabel: "老师表扬 +1", weekdays: [0] },
   { id: "diary", name: "写日记", type: "bonus", points: 1, weekdays: [1, 2, 3, 4, 5, 6, 0] },
@@ -929,6 +930,7 @@ function taskPalette(task) {
     "english-reading": { today: "#e0e4fb", future: "#f0f2ff", border: "#7181c7", ink: "#3f4e95" },
     "english-class": { today: "#dbeaff", future: "#edf5ff", border: "#6d9fdf", ink: "#174e99" },
     "math-class": { today: "#e7dcfb", future: "#f3edff", border: "#9a78cc", ink: "#62428f" },
+    "chinese-class": { today: "#f7d9d5", future: "#fcebe9", border: "#c66d63", ink: "#8e3b34" },
     "piano-class": { today: "#f8dbe8", future: "#fcecf3", border: "#c66d99", ink: "#8c315e" },
     "go-class": { today: "#d7ece0", future: "#e9f6ee", border: "#5d9c72", ink: "#2c6641" },
   }[task.id] || { today: "#e1e8e4", future: "#f0f5f2", border: "#92a39a", ink: "#455149" };
@@ -948,6 +950,7 @@ function defaultTaskTime(task) {
     "english-reading": { start: "21:00", end: "22:00" },
     "english-class": { start: "10:00", end: "11:30" },
     "math-class": { start: "10:00", end: "11:30" },
+    "chinese-class": { start: "10:00", end: "11:30" },
     "piano-class": { start: "16:00", end: "17:00" },
     "go-class": { start: "14:00", end: "15:30" },
   }[task.id] || { start: "18:00", end: "19:00" };
