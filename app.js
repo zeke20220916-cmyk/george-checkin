@@ -154,6 +154,7 @@ elements.checkinDateInput?.addEventListener("change", (event) => {
   renderTasks();
   renderSettlement();
 });
+if (elements.customTaskForm?.elements.date) elements.customTaskForm.elements.date.value = todayKey;
 
 ensureToday();
 initCloudSync();
@@ -176,6 +177,7 @@ function defaultState() {
     settlements: {},
     schedules,
     scheduleTimes,
+    dateSchedules: {},
     customTasks: [],
     redemptions: [],
     unlockedBadges: [],
@@ -195,11 +197,13 @@ function loadState() {
     const base = defaultState();
     const customTasks = normalizeCustomTasks(parsed.customTasks);
     const customSchedules = Object.fromEntries(customTasks.map((task) => [task.id, [...task.weekdays]]));
+    const dateSchedules = normalizeDateSchedules(parsed.dateSchedules);
     return {
       ...base,
       ...parsed,
       customTasks,
       schedules: { ...base.schedules, ...customSchedules, ...(parsed.schedules || {}) },
+      dateSchedules,
       scheduleTimes: normalizeScheduleTimes(parsed.scheduleTimes, customTasks),
       flags: { ...base.flags, ...(parsed.flags || {}) },
     };
@@ -372,11 +376,13 @@ function mergeState(remoteState) {
   const base = defaultState();
   const customTasks = normalizeCustomTasks(remoteState.customTasks);
   const customSchedules = Object.fromEntries(customTasks.map((task) => [task.id, [...task.weekdays]]));
+  const dateSchedules = normalizeDateSchedules(remoteState.dateSchedules);
   return {
     ...base,
     ...remoteState,
     customTasks,
     schedules: { ...base.schedules, ...customSchedules, ...(remoteState.schedules || {}) },
+    dateSchedules,
     scheduleTimes: normalizeScheduleTimes(remoteState.scheduleTimes, customTasks),
     flags: { ...base.flags, ...(remoteState.flags || {}) },
   };
@@ -481,6 +487,9 @@ function stateActivityScore(value) {
   if (!value) return 0;
   let score = Number(value.points || 0) ? 5 : 0;
   score += (value.customTasks || []).length * 3;
+  Object.values(value.dateSchedules || {}).forEach((dates) => {
+    score += Array.isArray(dates) ? dates.length : 0;
+  });
   score += Object.keys(value.settlements || {}).length * 10;
   Object.values(value.records || {}).forEach((day) => {
     if (day.leave) score += 2;
@@ -847,7 +856,7 @@ function renderWeekCalendarHeader(dateKey) {
 function renderWeekCalendarDay(dateKey, index) {
   const tasks = tasksForDate(dateKey)
     .filter((task) => task.type === "study")
-    .sort((a, b) => taskTimeForWeekday(a, parseDateKey(dateKey).getDay()).start.localeCompare(taskTimeForWeekday(b, parseDateKey(dateKey).getDay()).start));
+    .sort((a, b) => taskTimeForDate(a, dateKey).start.localeCompare(taskTimeForDate(b, dateKey).start));
   const date = parseDateKey(dateKey);
   const isToday = dateKey === todayKey;
   const dayState = isToday ? "today" : dateKey > todayKey ? "future" : "history";
@@ -863,7 +872,7 @@ function renderWeekCalendarTask(dateKey, task) {
   const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
   const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "done" : "";
   const palette = taskPalette(task);
-  const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
+  const time = taskTimeForDate(task, dateKey);
   const slot = taskTimeSlot(task, dateKey, { start: 0, end: 24 });
   const durationMinutes = Math.max(15, Math.round((slot.end - slot.start) * 60));
   return `
@@ -926,8 +935,17 @@ function normalizeScheduleTimes(savedTimes = {}, customTasks = []) {
       return [task.id, {
         default: { ...fallback, ...legacyTime, ...(saved.default || {}) },
         byWeekday: { ...(saved.byWeekday || {}) },
+        byDate: { ...(saved.byDate || {}) },
       }];
     }));
+}
+
+function normalizeDateSchedules(schedules = {}) {
+  if (!schedules || typeof schedules !== "object") return {};
+  return Object.fromEntries(Object.entries(schedules).map(([taskId, dates]) => [
+    taskId,
+    normalizeDateKeys(dates),
+  ]).filter(([, dates]) => dates.length));
 }
 
 function normalizeCustomTasks(tasks = []) {
@@ -943,13 +961,20 @@ function normalizeCustomTasks(tasks = []) {
       custom: true,
       weekdays: normalizeWeekdays(task.weekdays),
     }))
-    .filter((task, index, list) => task.weekdays.length && list.findIndex((item) => item.id === task.id) === index);
+    .filter((task, index, list) => list.findIndex((item) => item.id === task.id) === index);
 }
 
 function normalizeWeekdays(days = []) {
   return [...new Set((Array.isArray(days) ? days : [])
     .map((day) => Number(day))
     .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
+}
+
+function normalizeDateKeys(dates = []) {
+  return [...new Set((Array.isArray(dates) ? dates : [])
+    .map((date) => String(date || "").trim())
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)))]
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function syncTaskCatalog(customTasks = []) {
@@ -963,6 +988,7 @@ function scheduleTimeConfig(task) {
   return {
     default: { ...fallback, ...legacyTime, ...(saved.default || {}) },
     byWeekday: { ...(saved.byWeekday || {}) },
+    byDate: { ...(saved.byDate || {}) },
   };
 }
 
@@ -971,8 +997,14 @@ function taskTimeForWeekday(task, weekday) {
   return { ...config.default, ...(config.byWeekday[weekday] || {}) };
 }
 
+function taskTimeForDate(task, dateKey) {
+  const weekday = parseDateKey(dateKey).getDay();
+  const config = scheduleTimeConfig(task);
+  return { ...config.default, ...(config.byWeekday[weekday] || {}), ...(config.byDate[dateKey] || {}) };
+}
+
 function taskTimeSlot(task, dateKey, timeline = { start: 8, end: 22 }) {
-  const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
+  const time = taskTimeForDate(task, dateKey);
   const hours = timeline.end - timeline.start;
   const start = clampTimeToTimeline(time.start, timeline);
   const end = Math.max(start + 0.5, clampTimeToTimeline(time.end, timeline));
@@ -1069,7 +1101,7 @@ function renderMakeupMonthDay(dateKey) {
   const date = parseDateKey(dateKey);
   const classes = tasksForDate(dateKey)
     .filter((task) => task.type === "class")
-    .sort((a, b) => taskTimeForWeekday(a, date.getDay()).start.localeCompare(taskTimeForWeekday(b, date.getDay()).start));
+    .sort((a, b) => taskTimeForDate(a, dateKey).start.localeCompare(taskTimeForDate(b, dateKey).start));
   const dayState = dateKey === todayKey ? "today" : dateKey > todayKey ? "future" : "history";
   return `
     <section class="makeup-month-day ${dayState}">
@@ -1084,7 +1116,7 @@ function renderMakeupMonthDay(dateKey) {
 function renderMakeupMonthCourse(dateKey, task) {
   const record = state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task);
   const statusClass = record.status === "excellent" ? "excellent" : isDone(record) ? "done" : record.status === "missed" ? "missed" : courseHasOccurred(dateKey, task) ? "pending" : "future";
-  const time = taskTimeForWeekday(task, parseDateKey(dateKey).getDay());
+  const time = taskTimeForDate(task, dateKey);
   return `
     <article class="makeup-month-course ${statusClass}">
       <div class="calendar-task-title">
@@ -1133,7 +1165,7 @@ function courseHasOccurred(dateKey, task) {
   if (dateKey < todayKey) return true;
   if (dateKey > todayKey) return false;
   const now = new Date();
-  const time = taskTimeForWeekday(task, now.getDay());
+  const time = taskTimeForDate(task, dateKey);
   const [hours, minutes] = String(time.start || "00:00").split(":").map(Number);
   const startMinutes = (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
   return now.getHours() * 60 + now.getMinutes() >= startMinutes;
@@ -1772,7 +1804,7 @@ function renderClimbingPanel() {
 
 function renderClimbingDay(dateKey) {
   const date = parseDateKey(dateKey);
-  const studyTasks = TASKS.filter((task) => task.type === "study" && isScheduled(task, date.getDay()));
+  const studyTasks = tasksForDate(dateKey).filter((task) => task.type === "study");
   if (!studyTasks.length) return "";
   return `
     <section class="climbing-day">
@@ -2242,6 +2274,32 @@ function renderScheduleEditor() {
       saveState();
     });
   });
+  elements.scheduleEditor.querySelectorAll("[data-date-schedule-time]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const taskId = input.dataset.dateScheduleTime;
+      const dateKey = input.dataset.date;
+      const task = taskById(taskId);
+      const config = scheduleTimeConfig(task);
+      const current = taskTimeForDate(task, dateKey);
+      const next = { ...current, [input.dataset.timeField]: input.value };
+      if (next.end <= next.start) {
+        toast("结束时间需要晚于开始时间。");
+        renderScheduleEditor();
+        return;
+      }
+      config.byDate[dateKey] = next;
+      state.scheduleTimes[taskId] = config;
+      renderWeekGantt();
+      renderMakeupSchedule();
+      saveState();
+    });
+  });
+  elements.scheduleEditor.querySelectorAll("[data-add-date-plan]").forEach((button) => {
+    button.addEventListener("click", () => addDatePlan(button.dataset.addDatePlan));
+  });
+  elements.scheduleEditor.querySelectorAll("[data-delete-date-plan]").forEach((button) => {
+    button.addEventListener("click", () => deleteDatePlan(button.dataset.deleteDatePlan, button.dataset.date));
+  });
   elements.scheduleEditor.querySelectorAll("[data-delete-custom-task]").forEach((button) => {
     button.addEventListener("click", () => deleteCustomTask(button.dataset.deleteCustomTask));
   });
@@ -2252,7 +2310,8 @@ function renderScheduleItem(task) {
   return `
     <div class="schedule-item">
       <div>
-        <strong>${task.name}</strong>
+        <strong>${escapeHtml(task.name)}</strong>
+        <p class="field-hint">长期重复模板：会影响所有同星期日期。只安排或调整某一天，请用下面的具体日期。</p>
         <div class="weekday-row">
           ${WEEKDAYS.map((day, index) => `
             <label><input data-schedule="${task.id}" type="checkbox" value="${index}" ${selected.includes(index) ? "checked" : ""} />${day}</label>
@@ -2263,11 +2322,49 @@ function renderScheduleItem(task) {
             ${selected.length ? selected.map((weekday) => renderScheduleTimeRow(task, weekday)).join("") : `<span class="muted">请先选择安排日期。</span>`}
           </div>
         ` : ""}
+        ${renderDatePlanEditor(task)}
       </div>
       <div class="schedule-item-actions">
         <span class="point-pill">+${task.points}</span>
         ${task.custom ? `<button class="ghost-button danger compact-button" data-delete-custom-task="${task.id}" type="button">删除</button>` : ""}
       </div>
+    </div>
+  `;
+}
+
+function renderDatePlanEditor(task) {
+  const dates = state.dateSchedules[task.id] || [];
+  const fallback = defaultTaskTime(task);
+  return `
+    <div class="date-plan-editor">
+      <div class="date-plan-form">
+        <label>具体日期 <input data-date-plan-date="${task.id}" type="date" value="${todayKey}" /></label>
+        ${task.type === "study" || task.type === "class" ? `
+          <label>开始 <input data-date-plan-start="${task.id}" type="time" value="${fallback.start}" /></label>
+          <label>结束 <input data-date-plan-end="${task.id}" type="time" value="${fallback.end}" /></label>
+        ` : ""}
+        <button class="ghost-button compact-button" data-add-date-plan="${task.id}" type="button">添加到这一天</button>
+      </div>
+      ${dates.length ? `
+        <div class="date-plan-list">
+          ${dates.map((dateKey) => renderDatePlanRow(task, dateKey)).join("")}
+        </div>
+      ` : `<p class="field-hint">还没有单独指定日期。</p>`}
+    </div>
+  `;
+}
+
+function renderDatePlanRow(task, dateKey) {
+  const date = parseDateKey(dateKey);
+  const time = taskTimeForDate(task, dateKey);
+  return `
+    <div class="date-plan-row">
+      <strong>${date.getMonth() + 1}/${date.getDate()} ${WEEKDAYS[date.getDay()]}</strong>
+      ${task.type === "study" || task.type === "class" ? `
+        <label>开始 <input data-date-schedule-time="${task.id}" data-date="${dateKey}" data-time-field="start" type="time" value="${time.start}" /></label>
+        <label>结束 <input data-date-schedule-time="${task.id}" data-date="${dateKey}" data-time-field="end" type="time" value="${time.end}" /></label>
+      ` : `<span class="muted">按日期出现</span>`}
+      <button class="ghost-button danger compact-button" data-delete-date-plan="${task.id}" data-date="${dateKey}" type="button">移除</button>
     </div>
   `;
 }
@@ -2279,7 +2376,7 @@ function addCustomTask(event) {
   const name = String(formData.get("name") || "").trim();
   const type = String(formData.get("type") || "study");
   const points = Math.max(0, Number(formData.get("points") || 1));
-  const weekdays = normalizeWeekdays(formData.getAll("weekdays"));
+  const dateKey = String(formData.get("date") || "").trim();
   const start = String(formData.get("start") || "18:00");
   const end = String(formData.get("end") || "19:00");
 
@@ -2287,8 +2384,8 @@ function addCustomTask(event) {
     toast("请填写任务名称。");
     return;
   }
-  if (!weekdays.length) {
-    toast("请至少选择一个日期。");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    toast("请选择具体日期。");
     return;
   }
   if ((type === "study" || type === "class") && end <= start) {
@@ -2303,22 +2400,60 @@ function addCustomTask(event) {
     points,
     bonusLabel: type === "class" ? "老师表扬 +1" : "",
     custom: true,
-    weekdays,
+    weekdays: [],
   };
   state.customTasks = normalizeCustomTasks([...(state.customTasks || []), task]);
-  state.schedules[task.id] = [...weekdays];
+  state.schedules[task.id] = [];
+  state.dateSchedules[task.id] = [dateKey];
   if (type === "study" || type === "class") {
-    state.scheduleTimes[task.id] = { default: { start, end }, byWeekday: {} };
+    state.scheduleTimes[task.id] = { default: { start, end }, byWeekday: {}, byDate: { [dateKey]: { start, end } } };
   }
   syncTaskCatalog(state.customTasks);
   form.reset();
-  form.querySelectorAll('input[name="weekdays"]').forEach((input) => {
-    input.checked = [1, 2, 3, 4, 5].includes(Number(input.value));
-  });
+  form.elements.date.value = todayKey;
   form.elements.points.value = "1";
   form.elements.start.value = "18:00";
   form.elements.end.value = "19:00";
   toast("已新增计划。");
+  render();
+}
+
+function addDatePlan(taskId) {
+  const task = taskById(taskId);
+  if (!task) return;
+  const dateInput = elements.scheduleEditor.querySelector(`[data-date-plan-date="${taskId}"]`);
+  const startInput = elements.scheduleEditor.querySelector(`[data-date-plan-start="${taskId}"]`);
+  const endInput = elements.scheduleEditor.querySelector(`[data-date-plan-end="${taskId}"]`);
+  const dateKey = String(dateInput?.value || "").trim();
+  const start = startInput?.value || defaultTaskTime(task).start;
+  const end = endInput?.value || defaultTaskTime(task).end;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    toast("请选择具体日期。");
+    return;
+  }
+  if ((task.type === "study" || task.type === "class") && end <= start) {
+    toast("结束时间需要晚于开始时间。");
+    return;
+  }
+  state.dateSchedules[taskId] = normalizeDateKeys([...(state.dateSchedules[taskId] || []), dateKey]);
+  if (task.type === "study" || task.type === "class") {
+    const config = scheduleTimeConfig(task);
+    config.byDate[dateKey] = { start, end };
+    state.scheduleTimes[taskId] = config;
+  }
+  toast("已添加到具体日期。");
+  render();
+}
+
+function deleteDatePlan(taskId, dateKey) {
+  const task = taskById(taskId);
+  if (!task || !dateKey) return;
+  state.dateSchedules[taskId] = normalizeDateKeys((state.dateSchedules[taskId] || []).filter((date) => date !== dateKey));
+  if (!state.dateSchedules[taskId].length) delete state.dateSchedules[taskId];
+  if (state.scheduleTimes[taskId]?.byDate) {
+    delete state.scheduleTimes[taskId].byDate[dateKey];
+  }
+  toast("已移除这一天的单独安排。");
   render();
 }
 
@@ -2328,6 +2463,7 @@ function deleteCustomTask(taskId) {
   if (!window.confirm(`确认删除“${task.name}”吗？历史打卡记录会保留，但不会再显示在计划里。`)) return;
   state.customTasks = normalizeCustomTasks((state.customTasks || []).filter((item) => item.id !== taskId));
   delete state.schedules[taskId];
+  delete state.dateSchedules[taskId];
   delete state.scheduleTimes[taskId];
   syncTaskCatalog(state.customTasks);
   toast("已删除自定义计划。");
@@ -2350,8 +2486,7 @@ function calculateClimbingStatus() {
   let total = 0;
   let done = 0;
   dates.forEach((dateKey) => {
-    const date = parseDateKey(dateKey);
-    TASKS.filter((task) => task.type === "study" && isScheduled(task, date.getDay())).forEach((task) => {
+    tasksForDate(dateKey).filter((task) => task.type === "study").forEach((task) => {
       total += 1;
       const record = state.records[dateKey]?.tasks?.[task.id];
       if (record && (isDone(record) || record.makeup)) done += 1;
@@ -2361,17 +2496,20 @@ function calculateClimbingStatus() {
 }
 
 function todaysTasks() {
-  const day = today.getDay();
-  return TASKS.filter((task) => isScheduled(task, day));
+  return tasksForDate(todayKey);
 }
 
 function tasksForDate(dateKey) {
-  const day = parseDateKey(dateKey).getDay();
-  return TASKS.filter((task) => isScheduled(task, day));
+  return TASKS.filter((task) => isScheduledOnDate(task, dateKey));
 }
 
 function isScheduled(task, day) {
   return (state.schedules[task.id] || []).includes(day);
+}
+
+function isScheduledOnDate(task, dateKey) {
+  const day = parseDateKey(dateKey).getDay();
+  return isScheduled(task, day) || (state.dateSchedules[task.id] || []).includes(dateKey);
 }
 
 function recordFor(dateKey, taskId) {
@@ -2519,8 +2657,7 @@ function countGoWins(s) {
 
 function countHabitQualifiedDays(s) {
   return Object.entries(s.records).filter(([dateKey, day]) => {
-    const date = parseDateKey(dateKey);
-    const habitTasks = TASKS.filter((task) => task.type === "habit" && isScheduled(task, date.getDay()));
+    const habitTasks = tasksForDate(dateKey).filter((task) => task.type === "habit");
     if (!habitTasks.length) return false;
     const done = habitTasks.filter((task) => isDone(day.tasks?.[task.id] || {})).length;
     return done / habitTasks.length >= 0.8;
@@ -2533,8 +2670,7 @@ function countRewardBoxes(s) {
 
 function hasPerfectEnergyDay(s) {
   return Object.entries(s.records).some(([dateKey, day]) => {
-    const date = parseDateKey(dateKey);
-    const core = TASKS.filter((task) => (task.type === "study" || task.type === "habit") && isScheduled(task, date.getDay()));
+    const core = tasksForDate(dateKey).filter((task) => task.type === "study" || task.type === "habit");
     const allDone = core.length > 0 && core.every((task) => isDone(day.tasks?.[task.id] || {}));
     const excellent = TASKS.some((task) => task.type === "study" && day.tasks?.[task.id]?.status === "excellent");
     return allDone && excellent;
