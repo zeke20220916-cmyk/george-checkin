@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>George 的成长计划 2.0</title>
-    <link rel="stylesheet" href="./styles.css?v=20260907-4" />
+    <link rel="stylesheet" href="./styles.css?v=20260907-5" />
   </head>
   <body>
     <main class="app-shell">
@@ -105,7 +105,7 @@
           <article class="progress-panel">
             <div>
               <h2>生活习惯</h2>
-              <p>需要完成 80%</p>
+              <p>记录表现，不影响达标</p>
             </div>
             <strong id="habitProgress">0%</strong>
           </article>
@@ -166,10 +166,10 @@
               <h2>每日任务和补课设置</h2>
               <button id="resetButton" class="ghost-button danger" type="button">重置体验数据</button>
             </div>
-            <p class="muted">优先按具体日期制定任务和补课；每周模板只适合长期固定重复的安排。</p>
+            <p class="muted">先维护任务库，再按具体日期制定学习任务和补课；每周模板只适合长期固定重复的安排。</p>
             <form id="customTaskForm" class="custom-task-form">
               <div class="custom-task-form-head">
-                <h3>新增任务或补课</h3>
+                <h3>新增任务库项目</h3>
                 <button class="primary-button" type="submit">新增</button>
               </div>
               <div class="custom-task-grid">
@@ -190,20 +190,8 @@
                   积分
                   <input name="points" type="number" min="0" step="1" value="1" />
                 </label>
-                <label data-plan-only="true">
-                  日期
-                  <input name="date" type="date" />
-                </label>
-                <label data-plan-only="true">
-                  开始时间
-                  <input name="start" type="time" value="18:00" />
-                </label>
-                <label data-plan-only="true">
-                  结束时间
-                  <input name="end" type="time" value="19:00" />
-                </label>
               </div>
-              <p class="field-hint" id="customTaskHint">学习任务和补课新增后只会出现在选定日期；生活习惯和加分任务新增后默认每天出现。</p>
+              <p class="field-hint">学习任务和补课新增后会进入下面的按日录入列表；生活习惯和可选加分新增后默认每天出现。</p>
             </form>
             <div id="weeklyTargetEditor" class="weekly-target-panel"></div>
             <div id="dailyPlanEditor" class="date-plan-panel"></div>
@@ -244,6 +232,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="./firebase-config.js?v=20260523-1"></script>
-    <script src="./app.js?v=20260907-4"></script>
+    <script src="./app.js?v=20260907-5"></script>
   </body>
 </html>

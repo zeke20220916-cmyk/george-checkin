@@ -155,15 +155,12 @@ elements.resetButton.addEventListener("click", resetData);
 elements.exportDataButton.addEventListener("click", exportLocalData);
 elements.importDataButton.addEventListener("click", importLocalData);
 elements.customTaskForm?.addEventListener("submit", addCustomTask);
-elements.customTaskForm?.elements.type?.addEventListener("change", updateCustomTaskFormVisibility);
 elements.checkinDateInput?.addEventListener("change", (event) => {
   selectedCheckinDate = event.target.value || todayKey;
   ensureDateRecord(selectedCheckinDate);
   renderTasks();
   renderSettlement();
 });
-if (elements.customTaskForm?.elements.date) elements.customTaskForm.elements.date.value = todayKey;
-updateCustomTaskFormVisibility();
 
 ensureToday();
 initCloudSync();
@@ -663,7 +660,7 @@ function renderOverview() {
 
   elements.overviewPanel.innerHTML = `
     <section class="overview-grid">
-      ${overviewCard("今日任务", `${formatCount(todayCalc.studyDone)}/${formatCount(todayCalc.studyTotal)}`, `习惯完成率 ${todayCalc.habitPercent}%`)}
+      ${overviewCard("今日学习", `${formatCount(todayCalc.studyDone)}/${formatCount(todayCalc.studyTotal)}`, "达标只看学习任务")}
       ${overviewCard("本周目标", `${formatCount(weeklyGoal.done)}/${formatCount(weeklyGoal.total)}`, "点击查看完成明细", "data-weekly-goal-detail=\"true\"")}
       ${overviewCard("本周学习时间", formatHours(weekStats.studyMinutes), `${weekStats.studyMinutes} 分钟`)}
       ${overviewCard("补课完成", `${completedMakeup}/${makeupTasks.length}`, "按本周课程表统计")}
@@ -1758,7 +1755,7 @@ function calculateForDate(dateKey) {
   const studyTotal = studyTasks.reduce((sum, task) => sum + plannedCountForDate(task, dateKey), 0);
   const habitDone = habitTasks.filter((task) => isDone(record.tasks?.[task.id] || initialTaskRecord(task), task, dateKey)).length;
   const habitPercent = habitTasks.length ? Math.round((habitDone / habitTasks.length) * 100) : 100;
-  const qualified = studyDone >= studyTotal && habitPercent >= 80;
+  const qualified = studyTotal === 0 ? true : studyDone >= studyTotal;
   const previous = previousProgressBefore(dateKey);
   const multiplier = getMultiplier(previous.streak);
 
@@ -2727,19 +2724,12 @@ function addCustomTask(event) {
   const name = String(formData.get("name") || "").trim();
   const type = String(formData.get("type") || "study");
   const points = Math.max(0, Number(formData.get("points") || 1));
-  const dateKey = String(formData.get("date") || "").trim();
-  const start = String(formData.get("start") || "18:00");
-  const end = String(formData.get("end") || "19:00");
 
   if (!name) {
     toast("请填写任务名称。");
     return;
   }
   const isSimpleDaily = type === "habit" || type === "bonus";
-  if (!isSimpleDaily && !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
-    toast("请选择具体日期。");
-    return;
-  }
   const task = {
     id: `custom-${Date.now().toString(36)}`,
     name,
@@ -2751,20 +2741,11 @@ function addCustomTask(event) {
   };
   state.customTasks = normalizeCustomTasks([...(state.customTasks || []), task]);
   state.schedules[task.id] = [...task.weekdays];
-  if (!isSimpleDaily) {
-    state.dateSchedules[task.id] = [dateKey];
-    state.scheduleTimes[task.id] = { default: { start, end }, byWeekday: {}, byDate: { [dateKey]: { start, end } } };
-  } else {
-    state.scheduleTimes[task.id] = { default: defaultTaskTime(task), byWeekday: {}, byDate: {} };
-  }
+  state.scheduleTimes[task.id] = { default: defaultTaskTime(task), byWeekday: {}, byDate: {} };
   syncTaskCatalog(state.customTasks);
   form.reset();
-  form.elements.date.value = todayKey;
   form.elements.points.value = "1";
-  form.elements.start.value = "18:00";
-  form.elements.end.value = "19:00";
-  updateCustomTaskFormVisibility();
-  toast("已新增计划。");
+  toast(isSimpleDaily ? "已新增，并默认每天出现。" : "已新增到任务库，可在按日录入中安排。");
   render();
 }
 
@@ -2781,22 +2762,6 @@ function deleteCustomTask(taskId) {
   syncTaskCatalog(state.customTasks);
   toast("已删除自定义计划。");
   render();
-}
-
-function updateCustomTaskFormVisibility() {
-  const form = elements.customTaskForm;
-  if (!form) return;
-  const type = form.elements.type?.value || "study";
-  const showPlanFields = type === "study" || type === "class";
-  form.querySelectorAll("[data-plan-only]").forEach((label) => {
-    label.classList.toggle("hidden", !showPlanFields);
-  });
-  const hint = form.querySelector("#customTaskHint");
-  if (hint) {
-    hint.textContent = showPlanFields
-      ? "学习任务和补课新增后只会出现在选定日期，不会影响以前或以后同星期的安排。"
-      : "生活习惯和可选加分新增后默认每天出现，只在这里支持添加和删除。";
-  }
 }
 
 function renderScheduleTimeRow(task, weekday) {
