@@ -827,12 +827,12 @@ function renderWeekGantt() {
   const nextWeek = new Date(weekStart);
   nextWeek.setDate(weekStart.getDate() + 7);
   const totals = weekDates.reduce((summary, dateKey) => {
-    const tasks = tasksForDate(dateKey).filter((task) => task.type !== "class");
+    const tasks = tasksForDate(dateKey).filter((task) => task.type === "study");
     const done = tasks.reduce((sum, task) => sum + completedCountForDate(task, state.records[dateKey]?.tasks?.[task.id] || initialTaskRecord(task), dateKey), 0);
     const total = tasks.reduce((sum, task) => sum + plannedCountForDate(task, dateKey), 0);
     summary.tasks += total;
     summary.done += done;
-    summary.study += tasks.filter((task) => task.type === "study").reduce((sum, task) => sum + plannedCountForDate(task, dateKey), 0);
+    summary.study += total;
     return summary;
   }, { tasks: 0, done: 0, study: 0 });
   const completion = totals.tasks ? Math.round((totals.done / totals.tasks) * 100) : 100;
