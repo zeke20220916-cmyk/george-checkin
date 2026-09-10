@@ -2471,7 +2471,13 @@ function renderDatePlanPanel(kind) {
     input.addEventListener("change", () => setDatePlanInclusion(input.dataset.datePlanToggle, input.dataset.date, input.checked));
   });
   element.querySelectorAll("[data-date-plan-time]").forEach((input) => {
-    input.addEventListener("change", () => updateDatePlanValue(input.dataset.datePlanTime, input.dataset.date, input.dataset.timeField, input.value));
+    input.addEventListener("click", () => openTimePicker({
+      target: "date",
+      taskId: input.dataset.datePlanTime,
+      dateKey: input.dataset.date,
+      field: input.dataset.timeField,
+      value: input.dataset.value,
+    }));
   });
   element.querySelectorAll("[data-date-plan-count]").forEach((input) => {
     input.addEventListener("change", () => updateDatePlanValue(input.dataset.datePlanCount, input.dataset.date, "count", input.value));
@@ -2486,9 +2492,9 @@ function renderDatePlanTaskRow(task, dateKey, kind) {
     <label class="date-plan-task-row ${kind === "class" ? "class-plan" : ""} ${checked ? "active" : ""}">
       <input data-date-plan-toggle="${task.id}" data-date="${dateKey}" type="checkbox" ${checked ? "checked" : ""} />
       <strong>${escapeHtml(task.name)}</strong>
-      <input data-date-plan-time="${task.id}" data-date="${dateKey}" data-time-field="start" type="time" value="${time.start}" ${checked ? "" : "disabled"} />
+      ${renderTimePickerButton("date-plan-time", task.id, time.start, { date: dateKey, field: "start", disabled: !checked })}
       ${kind === "class" ? "" : `<input data-date-plan-count="${task.id}" data-date="${dateKey}" type="number" min="0" step="0.5" value="${formatCount(count)}" ${checked ? "" : "disabled"} />`}
-      <input data-date-plan-time="${task.id}" data-date="${dateKey}" data-time-field="end" type="time" value="${time.end}" ${checked ? "" : "disabled"} />
+      ${renderTimePickerButton("date-plan-time", task.id, time.end, { date: dateKey, field: "end", disabled: !checked })}
     </label>
   `;
 }
@@ -2562,10 +2568,13 @@ function renderWeeklyTargetEditor() {
           <h3>本周目标设置</h3>
           <p>按“任务、单次时长、次数”设置本周总目标。每日安排里会按单次时长自动回填结束时间。</p>
         </div>
-        <div class="week-task-toolbar">
-          <button class="month-nav-button" data-target-week="${toDateKey(previousWeek)}" type="button" title="上一周" aria-label="上一周"><i data-lucide="chevron-left"></i></button>
-          <strong>${weekRangeLabel(selectedTaskWeekStart)}</strong>
-          <button class="month-nav-button" data-target-week="${toDateKey(nextWeek)}" type="button" title="下一周" aria-label="下一周"><i data-lucide="chevron-right"></i></button>
+        <div class="weekly-target-actions">
+          <button class="ghost-button compact-button" data-copy-previous-targets="true" type="button">复制上周目标</button>
+          <div class="week-task-toolbar">
+            <button class="month-nav-button" data-target-week="${toDateKey(previousWeek)}" type="button" title="上一周" aria-label="上一周"><i data-lucide="chevron-left"></i></button>
+            <strong>${weekRangeLabel(selectedTaskWeekStart)}</strong>
+            <button class="month-nav-button" data-target-week="${toDateKey(nextWeek)}" type="button" title="下一周" aria-label="下一周"><i data-lucide="chevron-right"></i></button>
+          </div>
         </div>
       </div>
       <div class="weekly-target-list">
@@ -2589,6 +2598,7 @@ function renderWeeklyTargetEditor() {
   elements.weeklyTargetEditor.querySelectorAll("[data-weekly-target]").forEach((input) => {
     input.addEventListener("change", () => updateWeeklyTarget(input.dataset.weeklyTarget, input.dataset.targetField, input.value));
   });
+  elements.weeklyTargetEditor.querySelector("[data-copy-previous-targets]")?.addEventListener("click", copyPreviousWeekTargets);
   window.lucide?.createIcons({ attrs: { "aria-hidden": "true" } });
 }
 
@@ -2619,6 +2629,21 @@ function updateWeeklyTarget(taskId, field, value) {
   renderStats();
 }
 
+function copyPreviousWeekTargets() {
+  const weekStart = parseDateKey(selectedTaskWeekStart);
+  const previousWeek = new Date(weekStart);
+  previousWeek.setDate(weekStart.getDate() - 7);
+  const previousWeekKey = toDateKey(previousWeek);
+  state.weeklyTargets[selectedTaskWeekStart] = Object.fromEntries(TASKS
+    .filter((task) => task.type === "study")
+    .map((task) => {
+      const target = weeklyTargetForTask(task, previousWeekKey);
+      return [task.id, { duration: target.duration, count: target.count }];
+    }));
+  toast("已复制上周目标。");
+  render();
+}
+
 function renderScheduleEditor() {
   const groups = [
     { type: "study", title: "学习任务" },
@@ -2641,19 +2666,13 @@ function renderScheduleEditor() {
     });
   });
   elements.scheduleEditor.querySelectorAll("[data-schedule-time]").forEach((input) => {
-    input.addEventListener("change", () => {
-      const taskId = input.dataset.scheduleTime;
-      const task = taskById(taskId);
-      const weekday = Number(input.dataset.weekday);
-      const config = scheduleTimeConfig(task);
-      const current = taskTimeForWeekday(task, weekday);
-      const next = { ...current, [input.dataset.timeField]: input.value };
-      config.byWeekday[weekday] = next;
-      state.scheduleTimes[taskId] = config;
-      renderWeekGantt();
-      renderMakeupSchedule();
-      saveState();
-    });
+    input.addEventListener("click", () => openTimePicker({
+      target: "weekly",
+      taskId: input.dataset.scheduleTime,
+      weekday: Number(input.dataset.weekday),
+      field: input.dataset.timeField,
+      value: input.dataset.value,
+    }));
   });
   elements.scheduleEditor.querySelectorAll("[data-delete-custom-task]").forEach((button) => {
     button.addEventListener("click", () => deleteCustomTask(button.dataset.deleteCustomTask));
@@ -2779,10 +2798,96 @@ function renderScheduleTimeRow(task, weekday) {
   return `
     <div class="schedule-time-row">
       <span>${WEEKDAYS[weekday]}</span>
-      <label>开始 <input data-schedule-time="${task.id}" data-weekday="${weekday}" data-time-field="start" type="time" value="${time.start}" /></label>
-      <label>结束 <input data-schedule-time="${task.id}" data-weekday="${weekday}" data-time-field="end" type="time" value="${time.end}" /></label>
+      <label>开始 ${renderTimePickerButton("schedule-time", task.id, time.start, { weekday, field: "start" })}</label>
+      <label>结束 ${renderTimePickerButton("schedule-time", task.id, time.end, { weekday, field: "end" })}</label>
     </div>
   `;
+}
+
+function renderTimePickerButton(name, taskId, value, options = {}) {
+  const attrs = [
+    `data-${name}="${escapeAttr(taskId)}"`,
+    `data-time-field="${escapeAttr(options.field || "start")}"`,
+    `data-value="${escapeAttr(value)}"`,
+    options.date ? `data-date="${escapeAttr(options.date)}"` : "",
+    Number.isInteger(options.weekday) ? `data-weekday="${options.weekday}"` : "",
+  ].filter(Boolean).join(" ");
+  return `<button class="time-pick-button" ${attrs} type="button" ${options.disabled ? "disabled" : ""}>${escapeHtml(value)}</button>`;
+}
+
+function openTimePicker(options) {
+  closeTimePicker();
+  const [initialHour, initialMinute] = normalizeTimeParts(options.value);
+  const overlay = document.createElement("div");
+  overlay.className = "time-picker-overlay";
+  overlay.innerHTML = `
+    <div class="time-picker-dialog" role="dialog" aria-modal="true" aria-label="选择时间">
+      <div class="time-picker-head">
+        <strong>选择时间</strong>
+        <button class="icon-button" data-time-cancel="true" type="button" aria-label="关闭"><i data-lucide="x"></i></button>
+      </div>
+      <div class="time-picker-body">
+        <label>小时
+          <select data-time-hour>
+            ${Array.from({ length: 24 }, (_, hour) => `<option value="${hour}" ${hour === initialHour ? "selected" : ""}>${String(hour).padStart(2, "0")}</option>`).join("")}
+          </select>
+        </label>
+        <label>分钟
+          <select data-time-minute>
+            ${timeMinuteOptions(initialMinute).map((minute) => `<option value="${minute}" ${minute === initialMinute ? "selected" : ""}>${String(minute).padStart(2, "0")}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <div class="time-picker-actions">
+        <button class="ghost-button" data-time-cancel="true" type="button">取消</button>
+        <button class="primary-button" data-time-confirm="true" type="button">确定</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll("[data-time-cancel]").forEach((button) => {
+    button.addEventListener("click", closeTimePicker);
+  });
+  overlay.querySelector("[data-time-confirm]")?.addEventListener("click", () => {
+    const hour = Number(overlay.querySelector("[data-time-hour]")?.value || 0);
+    const minute = Number(overlay.querySelector("[data-time-minute]")?.value || 0);
+    const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    if (options.target === "weekly") {
+      updateWeeklyScheduleTime(options.taskId, options.weekday, options.field, value);
+    } else {
+      updateDatePlanValue(options.taskId, options.dateKey, options.field, value);
+    }
+    closeTimePicker();
+  });
+  window.lucide?.createIcons({ attrs: { "aria-hidden": "true" } });
+  overlay.querySelector("[data-time-hour]")?.focus();
+}
+
+function closeTimePicker() {
+  document.querySelector(".time-picker-overlay")?.remove();
+}
+
+function normalizeTimeParts(value) {
+  const [rawHour, rawMinute] = String(value || "18:00").split(":").map(Number);
+  const hour = Number.isInteger(rawHour) ? Math.min(23, Math.max(0, rawHour)) : 18;
+  const minute = Number.isInteger(rawMinute) ? Math.min(59, Math.max(0, rawMinute)) : 0;
+  return [hour, minute];
+}
+
+function timeMinuteOptions(selectedMinute) {
+  const minutes = new Set([...Array.from({ length: 12 }, (_, index) => index * 5), selectedMinute]);
+  return [...minutes].sort((a, b) => a - b);
+}
+
+function updateWeeklyScheduleTime(taskId, weekday, field, value) {
+  const task = taskById(taskId);
+  if (!task) return;
+  const config = scheduleTimeConfig(task);
+  const current = taskTimeForWeekday(task, weekday);
+  config.byWeekday[weekday] = { ...current, [field]: value };
+  state.scheduleTimes[taskId] = config;
+  saveState();
+  render();
 }
 
 function calculateClimbingStatus() {

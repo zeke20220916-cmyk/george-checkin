@@ -2098,7 +2098,7 @@ textarea {
 
 .date-plan-task-row {
   display: grid;
-  grid-template-columns: 74px minmax(130px, 1fr) minmax(96px, 0.5fr) minmax(88px, 0.4fr) minmax(96px, 0.5fr);
+  grid-template-columns: 44px minmax(132px, 1fr) repeat(3, minmax(78px, 104px));
   gap: 8px;
   align-items: center;
   min-height: 42px;
@@ -2109,7 +2109,7 @@ textarea {
 }
 
 .date-plan-task-row.class-plan {
-  grid-template-columns: 74px minmax(150px, 1fr) minmax(104px, 0.55fr) minmax(104px, 0.55fr);
+  grid-template-columns: 44px minmax(150px, 1fr) repeat(2, minmax(86px, 112px));
 }
 
 .date-plan-task-row.header {
@@ -2137,6 +2137,84 @@ label.date-plan-task-row {
 .date-plan-task-row input:disabled {
   color: #8b9891;
   background: #eef3f0;
+}
+
+.date-plan-task-row input[type="number"] {
+  width: 100%;
+  min-width: 0;
+}
+
+.time-pick-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #cfdcd5;
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  font-weight: 900;
+  text-align: center;
+}
+
+.time-pick-button:hover:not(:disabled),
+.time-pick-button:focus-visible:not(:disabled) {
+  border-color: var(--blue);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(48, 111, 223, 0.12);
+}
+
+.time-pick-button:disabled {
+  color: #8b9891;
+  background: #eef3f0;
+  cursor: not-allowed;
+}
+
+.time-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(20, 30, 25, 0.28);
+}
+
+.time-picker-dialog {
+  display: grid;
+  gap: 16px;
+  width: min(360px, 100%);
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.time-picker-head,
+.time-picker-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.time-picker-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.time-picker-body select {
+  min-height: 48px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.time-picker-actions .primary-button,
+.time-picker-actions .ghost-button {
+  width: auto;
+  min-width: 96px;
 }
 
 .schedule-item-actions {
